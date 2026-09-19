@@ -28,6 +28,11 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.media3.common.Player
 import com.joaohouto.clusterplayer.data.model.Folder
 import com.joaohouto.clusterplayer.ui.components.MetallicButton
 import com.joaohouto.clusterplayer.ui.components.MetallicButtonStyle
@@ -79,7 +85,7 @@ fun HomeScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Header Bar
+            // Header Bar com margens adequadas
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -116,12 +122,12 @@ fun HomeScreen(
                     onClick = { viewModel.rescan() },
                     icon = Icons.Rounded.Refresh,
                     text = "Atualizar",
-                    minSize = 60.dp,
+                    minSize = 54.dp,
                     contentDescription = "Atualizar pastas"
                 )
             }
 
-            // Folders Grid (optimized for landscape / ultrawide)
+            // Folders Grid (otimizada para landscape / ultrawide)
             if (folders.isEmpty() && !isScanning) {
                 Box(
                     modifier = Modifier
@@ -157,7 +163,7 @@ fun HomeScreen(
                         start = 24.dp,
                         end = 24.dp,
                         top = 8.dp,
-                        bottom = if (playbackState.currentTrack != null) 90.dp else 24.dp
+                        bottom = if (playbackState.currentTrack != null) 104.dp else 24.dp
                     ),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -177,12 +183,18 @@ fun HomeScreen(
             }
         }
 
-        // Mini-player fixed at the bottom if track is active
+        // Barra inferior de reprodução com TODOS os controles
         if (playbackState.currentTrack != null) {
-            MiniPlayerBar(
+            FullControlsBottomPlaybackBar(
                 track = playbackState.currentTrack!!,
                 isPlaying = playbackState.isPlaying,
+                isShuffleEnabled = playbackState.isShuffleEnabled,
+                repeatMode = playbackState.repeatMode,
                 onPlayPause = { viewModel.playPause() },
+                onNext = { viewModel.next() },
+                onPrevious = { viewModel.previous() },
+                onToggleShuffle = { viewModel.toggleShuffle() },
+                onCycleRepeatMode = { viewModel.cycleRepeatMode() },
                 onBarClick = onNavigateToPlayer,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
@@ -235,13 +247,13 @@ fun HomeScreen(
                                     style = MetallicButtonStyle.Accent,
                                     icon = Icons.Rounded.PlayArrow,
                                     text = "Reproduzir Todas",
-                                    minSize = 60.dp
+                                    minSize = 56.dp
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
                                 MetallicButton(
                                     onClick = { viewModel.selectFolder(null) },
                                     icon = Icons.Rounded.Close,
-                                    minSize = 60.dp,
+                                    minSize = 56.dp,
                                     contentDescription = "Fechar"
                                 )
                             }
@@ -373,12 +385,12 @@ private fun FolderCard(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Direct "Reproduzir Todas" button (hitbox >= 60dp)
+            // Direct "Reproduzir Todas" button
             MetallicButton(
                 onClick = onPlayAllClick,
                 style = MetallicButtonStyle.Accent,
                 icon = Icons.Rounded.PlayArrow,
-                minSize = 60.dp,
+                minSize = 56.dp,
                 contentDescription = "Reproduzir Todas"
             )
         }
@@ -386,62 +398,127 @@ private fun FolderCard(
 }
 
 @Composable
-private fun MiniPlayerBar(
+private fun FullControlsBottomPlaybackBar(
     track: com.joaohouto.clusterplayer.data.model.Track,
     isPlaying: Boolean,
+    isShuffleEnabled: Boolean,
+    repeatMode: Int,
     onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    onToggleShuffle: () -> Unit,
+    onCycleRepeatMode: () -> Unit,
     onBarClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(72.dp)
-            .clickable(onClick = onBarClick),
+            .height(82.dp),
         color = SurfaceCard,
         border = BorderStroke(1.dp, SurfaceCardBorder)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SquareAlbumArt(
-                uriOrPath = track.path.ifEmpty { track.uri },
-                modifier = Modifier.size(56.dp)
-            )
+            // Lado Esquerdo: Capa e Metadados (clicável para abrir o Player)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onBarClick),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SquareAlbumArt(
+                    uriOrPath = track.path.ifEmpty { track.uri },
+                    modifier = Modifier.size(60.dp)
+                )
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = track.title,
+                        color = TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = track.artist,
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = track.title,
-                    color = TextPrimary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+            // Lado Direito: Todos os controles de reprodução
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Shuffle (Aleatório)
+                MetallicButton(
+                    onClick = onToggleShuffle,
+                    icon = Icons.Rounded.Shuffle,
+                    isActive = isShuffleEnabled,
+                    minSize = 52.dp,
+                    contentDescription = "Modo Aleatório"
                 )
-                Text(
-                    text = track.artist,
-                    color = TextSecondary,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+
+                // Anterior (<)
+                MetallicButton(
+                    onClick = onPrevious,
+                    icon = Icons.Rounded.SkipPrevious,
+                    minSize = 52.dp,
+                    contentDescription = "Faixa Anterior"
+                )
+
+                // Play / Pause (|| / ▶) Centralizado em Destaque
+                MetallicButton(
+                    onClick = onPlayPause,
+                    style = MetallicButtonStyle.Accent,
+                    icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    minSize = 56.dp,
+                    contentDescription = if (isPlaying) "Pausar" else "Reproduzir"
+                )
+
+                // Próximo (>)
+                MetallicButton(
+                    onClick = onNext,
+                    icon = Icons.Rounded.SkipNext,
+                    minSize = 52.dp,
+                    contentDescription = "Próxima Faixa"
+                )
+
+                // Repetir
+                val isRepeatActive = repeatMode != Player.REPEAT_MODE_OFF
+                val repeatIcon = if (repeatMode == Player.REPEAT_MODE_ONE) {
+                    Icons.Rounded.RepeatOne
+                } else {
+                    Icons.Rounded.Repeat
+                }
+                MetallicButton(
+                    onClick = onCycleRepeatMode,
+                    icon = repeatIcon,
+                    isActive = isRepeatActive,
+                    minSize = 52.dp,
+                    contentDescription = "Modo Repetir"
                 )
             }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Large 60dp touch target Play/Pause
-            MetallicButton(
-                onClick = onPlayPause,
-                style = MetallicButtonStyle.Accent,
-                icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                minSize = 60.dp,
-                contentDescription = if (isPlaying) "Pausar" else "Reproduzir"
-            )
         }
     }
 }

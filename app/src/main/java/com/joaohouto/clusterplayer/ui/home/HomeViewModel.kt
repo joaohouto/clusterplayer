@@ -66,6 +66,22 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         playerController.playPause()
     }
 
+    fun next() {
+        playerController.next()
+    }
+
+    fun previous() {
+        playerController.previous()
+    }
+
+    fun toggleShuffle() {
+        playerController.toggleShuffle()
+    }
+
+    fun cycleRepeatMode() {
+        playerController.cycleRepeatMode()
+    }
+
     fun rescan() {
         repository.triggerScan()
     }

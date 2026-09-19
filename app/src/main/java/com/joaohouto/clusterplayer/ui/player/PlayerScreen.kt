@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -82,7 +83,7 @@ fun PlayerScreen(
                     }
                 )
             }
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+            .padding(horizontal = 24.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         // Linha Superior: Logo/Título e Botão de navegação "Playlists / Pastas"
@@ -103,23 +104,23 @@ fun PlayerScreen(
                 onClick = onNavigateToHome,
                 icon = Icons.Rounded.Folder,
                 text = "Playlists / Pastas",
-                minSize = 56.dp,
+                minSize = 54.dp,
                 contentDescription = "Voltar para Pastas"
             )
         }
 
-        // Linha Central: Capa de Álbum (Tamanho Médio) + Metadados e Barra de Progresso
+        // Linha Central: Capa de Álbum (Tamanho Médio aumentado ~200dp) + Metadados e Barra de Progresso
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .padding(vertical = 12.dp),
+                .padding(vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(28.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Capa da música quadrada de tamanho médio (160x160 dp) com cantos 8dp
+            // Capa da música aumentada para tamanho médio-grande (200x200 dp)
             Box(
-                modifier = Modifier.size(160.dp),
+                modifier = Modifier.size(200.dp),
                 contentAlignment = Alignment.Center
             ) {
                 SquareAlbumArt(
@@ -164,7 +165,7 @@ fun PlayerScreen(
 
                 // Linha sincronizada de letras (.LRC) se presente
                 if (!state.currentLyricsLine.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Rounded.GraphicEq,
@@ -184,7 +185,7 @@ fun PlayerScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Barra de Progresso Vermelha
                 ProgressBarSlider(
@@ -195,12 +196,13 @@ fun PlayerScreen(
             }
         }
 
-        // ÚLTIMA LINHA DO LAYOUT: Linha exclusiva com os botões de controle de reprodução
+        // ÚLTIMA LINHA DO LAYOUT: Linha exclusiva com os botões de controle de reprodução RESPONSIVOS
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+                .height(62.dp)
+                .padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Shuffle (Aleatório)
@@ -208,7 +210,10 @@ fun PlayerScreen(
                 onClick = { viewModel.toggleShuffle() },
                 icon = Icons.Rounded.Shuffle,
                 isActive = state.isShuffleEnabled,
-                minSize = 60.dp,
+                minSize = 54.dp,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
                 contentDescription = "Modo Aleatório"
             )
 
@@ -216,7 +221,10 @@ fun PlayerScreen(
             MetallicButton(
                 onClick = { viewModel.previous() },
                 icon = Icons.Rounded.SkipPrevious,
-                minSize = 60.dp,
+                minSize = 54.dp,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
                 contentDescription = "Faixa Anterior"
             )
 
@@ -225,7 +233,10 @@ fun PlayerScreen(
                 onClick = { viewModel.playPause() },
                 style = MetallicButtonStyle.Accent,
                 icon = if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                minSize = 68.dp,
+                minSize = 54.dp,
+                modifier = Modifier
+                    .weight(1.3f)
+                    .fillMaxHeight(),
                 contentDescription = if (state.isPlaying) "Pausar" else "Reproduzir"
             )
 
@@ -233,7 +244,10 @@ fun PlayerScreen(
             MetallicButton(
                 onClick = { viewModel.next() },
                 icon = Icons.Rounded.SkipNext,
-                minSize = 60.dp,
+                minSize = 54.dp,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
                 contentDescription = "Próxima Faixa"
             )
 
@@ -248,7 +262,10 @@ fun PlayerScreen(
                 onClick = { viewModel.cycleRepeatMode() },
                 icon = repeatIcon,
                 isActive = isRepeatActive,
-                minSize = 60.dp,
+                minSize = 54.dp,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
                 contentDescription = "Modo Repetir"
             )
         }
