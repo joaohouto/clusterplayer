@@ -37,17 +37,17 @@
 
     <!-- Play Button Drop Shadow -->
     <path
-        android:pathData="M46,42 C46,40 48.2,38.7 49.9,39.8 L71.5,53.3 C73.1,54.3 73.1,56.7 71.5,57.7 L49.9,71.2 C48.2,72.3 46,71 46,69 Z"
+        android:pathData="M46.2,45.6 C46.2,44 48,42.96 49.42,43.84 L66.6,54.44 C67.88,55.24 67.88,57.16 66.6,57.96 L49.42,68.56 C48,69.44 46.2,68.4 46.2,66.8 Z"
         android:fillColor="#50000000" />
 
     <!-- Light Gray Gradient Play Button Symbol -->
-    <path android:pathData="M46,40.5 C46,38.5 48.2,37.2 49.9,38.3 L71.5,51.8 C73.1,52.8 73.1,55.2 71.5,56.2 L49.9,69.7 C48.2,70.8 46,69.5 46,67.5 Z">
+    <path android:pathData="M46.2,44.4 C46.2,42.8 48,41.76 49.42,42.64 L66.6,53.24 C67.88,54.04 67.88,55.96 66.6,56.76 L49.42,67.36 C48,68.24 46.2,67.2 46.2,65.6 Z">
         <aapt:attr name="android:fillColor">
             <gradient
-                android:startX="46"
-                android:startY="36"
-                android:endX="72"
-                android:endY="72"
+                android:startX="46.2"
+                android:startY="41.2"
+                android:endX="67.4"
+                android:endY="68.8"
                 android:type="linear">
                 <item android:offset="0.0" android:color="#FFFFFF" />
                 <item android:offset="0.35" android:color="#F0F2F6" />

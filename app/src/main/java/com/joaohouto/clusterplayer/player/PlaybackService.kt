@@ -26,6 +26,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class PlaybackService : MediaSessionService() {
@@ -172,13 +173,16 @@ class PlaybackService : MediaSessionService() {
 
     private fun startPeriodicPositionSaving() {
         positionSavingJob?.cancel()
-        positionSavingJob = serviceScope.launch(Dispatchers.IO) {
+        // Must run on Main dispatcher because player properties (isPlaying, currentPosition) require application thread
+        positionSavingJob = serviceScope.launch {
             while (isActive) {
                 delay(POSITION_SAVE_INTERVAL_MS)
                 if (player.isPlaying) {
                     val currentPos = player.currentPosition
                     if (currentPos > 0) {
-                        preferencesDataStore.savePosition(currentPos)
+                        withContext(Dispatchers.IO) {
+                            preferencesDataStore.savePosition(currentPos)
+                        }
                     }
                 }
             }
@@ -186,14 +190,15 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun saveCurrentStateImmediate() {
-        serviceScope.launch(Dispatchers.IO) {
-            val currentItem = player.currentMediaItem
-            val mediaId = currentItem?.mediaId
-            val extras = currentItem?.mediaMetadata?.extras
-            val folderPath = extras?.getString("folderPath") ?: ""
-            val position = player.currentPosition
+        // Read player properties ON MAIN THREAD synchronously
+        val currentItem = player.currentMediaItem
+        val mediaId = currentItem?.mediaId
+        val extras = currentItem?.mediaMetadata?.extras
+        val folderPath = extras?.getString("folderPath") ?: ""
+        val position = player.currentPosition
 
-            if (!mediaId.isNullOrEmpty()) {
+        if (!mediaId.isNullOrEmpty()) {
+            serviceScope.launch(Dispatchers.IO) {
                 preferencesDataStore.saveLastPlayback(
                     trackUri = mediaId,
                     folderPath = folderPath,
@@ -205,7 +210,9 @@ class PlaybackService : MediaSessionService() {
 
     private suspend fun restoreAutoplayState() {
         try {
-            val snapshot = preferencesDataStore.getPlaybackSnapshot()
+            val snapshot = withContext(Dispatchers.IO) {
+                preferencesDataStore.getPlaybackSnapshot()
+            }
             val folderPath = snapshot.lastFolderPath
             val trackUri = snapshot.lastTrackUri
             val positionMs = snapshot.lastPositionMs
@@ -217,7 +224,9 @@ class PlaybackService : MediaSessionService() {
                 var tracks = repository.getTracksForFolderSync(folderPath)
                 if (tracks.isEmpty()) {
                     // Give scanner a moment or scan if database is not yet populated
-                    val scanResult = com.joaohouto.clusterplayer.data.scanner.StorageScanner(this@PlaybackService).scanStorage()
+                    val scanResult = withContext(Dispatchers.IO) {
+                        com.joaohouto.clusterplayer.data.scanner.StorageScanner(this@PlaybackService).scanStorage()
+                    }
                     tracks = scanResult.tracks.filter { it.folderPath == folderPath }.map { it.toDomain() }
                 }
 
