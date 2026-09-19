@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import com.joaohouto.clusterplayer.R
 import com.joaohouto.clusterplayer.data.local.entity.FolderEntity
 import com.joaohouto.clusterplayer.data.local.entity.TrackEntity
 import kotlinx.coroutines.Dispatchers
@@ -118,15 +119,18 @@ class StorageScanner(private val context: Context) {
 
                 if (filePath.isEmpty() || ext in SUPPORTED_EXTENSIONS) {
                     val folderPath = file?.parentFile?.absolutePath ?: "Root"
-                    val displayName = title ?: file?.nameWithoutExtension ?: "Faixa Desconhecida"
+                    val unknownTrackStr = context.getString(R.string.unknown_track)
+                    val unknownArtistStr = context.getString(R.string.unknown_artist)
+                    val unknownAlbumStr = context.getString(R.string.unknown_album)
+                    val displayName = title ?: file?.nameWithoutExtension ?: unknownTrackStr
 
                     val entity = TrackEntity(
                         id = 0,
                         uri = contentUri,
                         path = filePath,
                         title = displayName,
-                        artist = if (artist.isNullOrBlank() || artist == "<unknown>") "Artista Desconhecido" else artist,
-                        album = if (album.isNullOrBlank() || album == "<unknown>") "Álbum Desconhecido" else album,
+                        artist = if (artist.isNullOrBlank() || artist == "<unknown>") unknownArtistStr else artist,
+                        album = if (album.isNullOrBlank() || album == "<unknown>") unknownAlbumStr else album,
                         durationMs = duration,
                         folderPath = folderPath,
                         trackNumber = trackNum
@@ -202,8 +206,8 @@ class StorageScanner(private val context: Context) {
     private fun extractTrackMetadata(file: File): TrackEntity {
         val retriever = MediaMetadataRetriever()
         var title = file.nameWithoutExtension
-        var artist = "Artista Desconhecido"
-        var album = "Álbum Desconhecido"
+        var artist = context.getString(R.string.unknown_artist)
+        var album = context.getString(R.string.unknown_album)
         var durationMs = 0L
         var trackNumber = 0
 

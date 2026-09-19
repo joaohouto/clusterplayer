@@ -2,6 +2,7 @@ package com.joaohouto.clusterplayer.ui.home
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,15 +43,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.media3.common.Player
+import com.joaohouto.clusterplayer.R
 import com.joaohouto.clusterplayer.data.model.Folder
 import com.joaohouto.clusterplayer.ui.components.MetallicButton
 import com.joaohouto.clusterplayer.ui.components.MetallicButtonStyle
@@ -95,7 +99,7 @@ fun HomeScreen(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "PASTAS & PLAYLISTS",
+                        text = stringResource(R.string.header_folders_playlists),
                         color = TextPrimary,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
@@ -111,7 +115,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Varrendo armazenamento...",
+                            text = stringResource(R.string.status_scanning),
                             color = TextSecondary,
                             fontSize = 13.sp
                         )
@@ -121,9 +125,9 @@ fun HomeScreen(
                 MetallicButton(
                     onClick = { viewModel.rescan() },
                     icon = Icons.Rounded.Refresh,
-                    text = "Atualizar",
+                    text = stringResource(R.string.btn_refresh),
                     minSize = 54.dp,
-                    contentDescription = "Atualizar pastas"
+                    contentDescription = stringResource(R.string.desc_refresh)
                 )
             }
 
@@ -144,13 +148,13 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Nenhuma pasta de música encontrada",
+                            text = stringResource(R.string.empty_folders_title),
                             color = TextSecondary,
                             fontSize = 16.sp
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Insira um pendrive USB ou adicione músicas ao armazenamento",
+                            text = stringResource(R.string.empty_folders_subtitle),
                             color = TextSecondary,
                             fontSize = 13.sp
                         )
@@ -163,13 +167,13 @@ fun HomeScreen(
                         start = 24.dp,
                         end = 24.dp,
                         top = 8.dp,
-                        bottom = if (playbackState.currentTrack != null) 104.dp else 24.dp
+                        bottom = if (playbackState.currentTrack != null) 116.dp else 24.dp
                     ),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    items(folders, key = { it.path }) { folder ->
+                    items(folders, key = { it.path }, contentType = { "folder_card" }) { folder ->
                         FolderCard(
                             folder = folder,
                             onFolderClick = { viewModel.selectFolder(folder) },
@@ -202,128 +206,21 @@ fun HomeScreen(
 
         // Selected Folder Track List Dialog
         if (selectedFolder != null) {
-            Dialog(onDismissRequest = { viewModel.selectFolder(null) }) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth(0.9f)
-                        .fillMaxHeight(0.85f),
-                    shape = RoundedCornerShape(16.dp),
-                    color = SurfaceCard,
-                    border = BorderStroke(1.dp, SurfaceCardBorder)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(20.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = selectedFolder!!.name,
-                                    color = TextPrimary,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = "${selectedFolder!!.trackCount} faixas",
-                                    color = TextSecondary,
-                                    fontSize = 14.sp
-                                )
-                            }
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                MetallicButton(
-                                    onClick = {
-                                        viewModel.playFolder(selectedFolder!!.path)
-                                        viewModel.selectFolder(null)
-                                        onNavigateToPlayer()
-                                    },
-                                    style = MetallicButtonStyle.Accent,
-                                    icon = Icons.Rounded.PlayArrow,
-                                    text = "Reproduzir Todas",
-                                    minSize = 56.dp
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                MetallicButton(
-                                    onClick = { viewModel.selectFolder(null) },
-                                    icon = Icons.Rounded.Close,
-                                    minSize = 56.dp,
-                                    contentDescription = "Fechar"
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        LazyColumn(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            itemsIndexed(folderTracks) { index, track ->
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable {
-                                            viewModel.playTrackInFolder(track.folderPath, index)
-                                            viewModel.selectFolder(null)
-                                            onNavigateToPlayer()
-                                        },
-                                    color = DeepMetallicBackground,
-                                    border = BorderStroke(1.dp, SurfaceCardBorder)
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = String.format(Locale.getDefault(), "%02d", index + 1),
-                                            color = TextSecondary,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            modifier = Modifier.width(32.dp)
-                                        )
-
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = track.title,
-                                                color = TextPrimary,
-                                                fontSize = 16.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            Text(
-                                                text = track.artist,
-                                                color = TextSecondary,
-                                                fontSize = 13.sp,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.width(12.dp))
-
-                                        Text(
-                                            text = formatDuration(track.durationMs),
-                                            color = TextSecondary,
-                                            fontSize = 13.sp
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            FolderTracksDialog(
+                folder = selectedFolder!!,
+                tracks = folderTracks,
+                onPlayFolder = {
+                    viewModel.playFolder(selectedFolder!!.path)
+                    viewModel.selectFolder(null)
+                    onNavigateToPlayer()
+                },
+                onPlayTrack = { index ->
+                    viewModel.playTrackInFolder(selectedFolder!!.path, index)
+                    viewModel.selectFolder(null)
+                    onNavigateToPlayer()
+                },
+                onDismiss = { viewModel.selectFolder(null) }
+            )
         }
     }
 }
@@ -377,7 +274,7 @@ private fun FolderCard(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "${folder.trackCount} faixas",
+                    text = stringResource(R.string.tracks_count, folder.trackCount),
                     color = TextSecondary,
                     fontSize = 13.sp
                 )
@@ -391,7 +288,7 @@ private fun FolderCard(
                 style = MetallicButtonStyle.Accent,
                 icon = Icons.Rounded.PlayArrow,
                 minSize = 56.dp,
-                contentDescription = "Reproduzir Todas"
+                contentDescription = stringResource(R.string.btn_play_all)
             )
         }
     }
@@ -414,14 +311,14 @@ private fun FullControlsBottomPlaybackBar(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(76.dp),
+            .height(88.dp),
         color = SurfaceCard,
         border = BorderStroke(1.dp, SurfaceCardBorder)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 14.dp, vertical = 6.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Lado Esquerdo: Capa e Metadados (clicável para abrir o Player)
@@ -429,16 +326,16 @@ private fun FullControlsBottomPlaybackBar(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(10.dp))
                     .clickable(onClick = onBarClick),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 SquareAlbumArt(
                     uriOrPath = track.path.ifEmpty { track.uri },
-                    modifier = Modifier.size(52.dp)
+                    modifier = Modifier.size(66.dp)
                 )
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
                 Column(
                     modifier = Modifier.weight(1f),
@@ -447,27 +344,27 @@ private fun FullControlsBottomPlaybackBar(
                     Text(
                         text = track.title,
                         color = TextPrimary,
-                        fontSize = 15.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = track.artist,
                         color = TextSecondary,
-                        fontSize = 12.sp,
+                        fontSize = 14.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             // Lado Direito: Todos os controles de reprodução
             Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Shuffle (Aleatório)
@@ -475,16 +372,18 @@ private fun FullControlsBottomPlaybackBar(
                     onClick = onToggleShuffle,
                     icon = Icons.Rounded.Shuffle,
                     isActive = isShuffleEnabled,
-                    minSize = 46.dp,
-                    contentDescription = "Modo Aleatório"
+                    minSize = 48.dp,
+                    iconSize = 28.dp,
+                    contentDescription = stringResource(R.string.desc_shuffle)
                 )
 
                 // Anterior (<)
                 MetallicButton(
                     onClick = onPrevious,
                     icon = Icons.Rounded.SkipPrevious,
-                    minSize = 46.dp,
-                    contentDescription = "Faixa Anterior"
+                    minSize = 48.dp,
+                    iconSize = 28.dp,
+                    contentDescription = stringResource(R.string.desc_previous)
                 )
 
                 // Play / Pause (|| / ▶) Centralizado em Destaque
@@ -492,16 +391,18 @@ private fun FullControlsBottomPlaybackBar(
                     onClick = onPlayPause,
                     style = MetallicButtonStyle.Accent,
                     icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    minSize = 50.dp,
-                    contentDescription = if (isPlaying) "Pausar" else "Reproduzir"
+                    minSize = 54.dp,
+                    iconSize = 32.dp,
+                    contentDescription = if (isPlaying) stringResource(R.string.desc_pause) else stringResource(R.string.desc_play)
                 )
 
                 // Próximo (>)
                 MetallicButton(
                     onClick = onNext,
                     icon = Icons.Rounded.SkipNext,
-                    minSize = 46.dp,
-                    contentDescription = "Próxima Faixa"
+                    minSize = 48.dp,
+                    iconSize = 28.dp,
+                    contentDescription = stringResource(R.string.desc_next)
                 )
 
                 // Repetir
@@ -515,11 +416,161 @@ private fun FullControlsBottomPlaybackBar(
                     onClick = onCycleRepeatMode,
                     icon = repeatIcon,
                     isActive = isRepeatActive,
-                    minSize = 46.dp,
-                    contentDescription = "Modo Repetir"
+                    minSize = 48.dp,
+                    iconSize = 28.dp,
+                    contentDescription = stringResource(R.string.desc_repeat)
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun FolderTracksDialog(
+    folder: Folder,
+    tracks: List<com.joaohouto.clusterplayer.data.model.Track>,
+    onPlayFolder: () -> Unit,
+    onPlayTrack: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val itemShape = remember { RoundedCornerShape(8.dp) }
+    val itemBorder = remember { BorderStroke(1.dp, SurfaceCardBorder) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .fillMaxHeight(0.85f),
+            shape = RoundedCornerShape(16.dp),
+            color = SurfaceCard,
+            border = BorderStroke(1.dp, SurfaceCardBorder)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = folder.name,
+                            color = TextPrimary,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = stringResource(R.string.tracks_count, folder.trackCount),
+                            color = TextSecondary,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        MetallicButton(
+                            onClick = onPlayFolder,
+                            style = MetallicButtonStyle.Accent,
+                            icon = Icons.Rounded.PlayArrow,
+                            text = stringResource(R.string.btn_play_all),
+                            minSize = 56.dp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        MetallicButton(
+                            onClick = onDismiss,
+                            icon = Icons.Rounded.Close,
+                            minSize = 56.dp,
+                            contentDescription = stringResource(R.string.btn_close)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    itemsIndexed(
+                        items = tracks,
+                        key = { index, track ->
+                            if (track.id != 0L) track.id else "${track.uri}_$index"
+                        },
+                        contentType = { _, _ -> "track_item" }
+                    ) { index, track ->
+                        TrackListItem(
+                            index = index,
+                            track = track,
+                            shape = itemShape,
+                            border = itemBorder,
+                            onClick = { onPlayTrack(index) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrackListItem(
+    index: Int,
+    track: com.joaohouto.clusterplayer.data.model.Track,
+    shape: RoundedCornerShape,
+    border: BorderStroke,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val formattedIndex = remember(index) { String.format(Locale.getDefault(), "%02d", index + 1) }
+    val formattedDuration = remember(track.durationMs) { formatDuration(track.durationMs) }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(DeepMetallicBackground)
+            .border(border, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = formattedIndex,
+            color = TextSecondary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.width(32.dp)
+        )
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = track.title,
+                color = TextPrimary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = track.artist,
+                color = TextSecondary,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Text(
+            text = formattedDuration,
+            color = TextSecondary,
+            fontSize = 13.sp
+        )
     }
 }
 

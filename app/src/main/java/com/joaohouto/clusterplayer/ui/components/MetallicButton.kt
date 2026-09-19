@@ -56,6 +56,7 @@ fun MetallicButton(
     text: String? = null,
     isActive: Boolean = false,
     minSize: Dp = 60.dp,
+    iconSize: Dp = 28.dp,
     contentDescription: String? = null
 ) {
     val shape = RoundedCornerShape(12.dp)
@@ -114,7 +115,7 @@ fun MetallicButton(
                         imageVector = icon,
                         contentDescription = contentDescription ?: text,
                         tint = contentColor,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(iconSize)
                     )
                 }
                 if (icon != null && !text.isNullOrEmpty()) {

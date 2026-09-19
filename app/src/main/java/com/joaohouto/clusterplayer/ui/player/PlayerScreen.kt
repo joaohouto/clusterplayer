@@ -16,8 +16,16 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -26,6 +34,13 @@ import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.window.Dialog
+import com.joaohouto.clusterplayer.ui.theme.SurfaceCard
+import com.joaohouto.clusterplayer.ui.theme.SurfaceCardBorder
+import java.io.File
+import java.util.Locale
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,11 +52,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
+import com.joaohouto.clusterplayer.R
 import com.joaohouto.clusterplayer.ui.components.MetallicButton
 import com.joaohouto.clusterplayer.ui.components.MetallicButtonStyle
 import com.joaohouto.clusterplayer.ui.components.ProgressBarSlider
@@ -59,6 +76,8 @@ fun PlayerScreen(
 ) {
     val state by viewModel.playbackState.collectAsState()
     val currentTrack = state.currentTrack
+    val folderTracks by viewModel.currentFolderTracks.collectAsState()
+    var showTracksDialog by remember { mutableStateOf(false) }
 
     var dragAmountX by remember { mutableFloatStateOf(0f) }
 
@@ -88,7 +107,7 @@ fun PlayerScreen(
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Linha Superior: Logo/Título e Botão de navegação "Playlists / Pastas"
+        // Linha Superior: Logo/Título e Botões de navegação ("Voltar" e "Músicas da Pasta")
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -97,20 +116,38 @@ fun PlayerScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "CLUSTER PLAYER",
+                text = stringResource(R.string.header_cluster_player),
                 color = TextSecondary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.5.sp
             )
 
-            MetallicButton(
-                onClick = onNavigateToHome,
-                icon = Icons.Rounded.Folder,
-                text = "Playlists / Pastas",
-                minSize = 48.dp,
-                contentDescription = "Voltar para Pastas"
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Botão para abrir listagem de músicas da pasta que está tocando atualmente
+                MetallicButton(
+                    onClick = {
+                        viewModel.loadTracksForCurrentFolder()
+                        showTracksDialog = true
+                    },
+                    icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                    text = stringResource(R.string.btn_folder_tracks),
+                    minSize = 48.dp,
+                    contentDescription = stringResource(R.string.desc_folder_tracks)
+                )
+
+                // Botão de Voltar para a tela de Pastas / Playlists
+                MetallicButton(
+                    onClick = onNavigateToHome,
+                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                    text = stringResource(R.string.btn_back),
+                    minSize = 48.dp,
+                    contentDescription = stringResource(R.string.desc_back)
+                )
+            }
         }
 
         // Linha Central: Capa de Álbum (Tamanho Médio flexível até 200dp) + Metadados e Barra de Progresso
@@ -144,22 +181,62 @@ fun PlayerScreen(
                     .fillMaxHeight(),
                 verticalArrangement = Arrangement.Center
             ) {
-                // Nome da faixa
+                // Espaço FIXO para letras sincronizadas (.LRC) - Posicionado ACIMA do título
+                // Garante que o título, artista e barra de progresso nunca se movam
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(26.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    val lyricsLine = state.currentLyricsLine
+                    if (!lyricsLine.isNullOrBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.GraphicEq,
+                                contentDescription = null,
+                                tint = NeedleRed,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = lyricsLine,
+                                color = NeedleRed,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Nome da faixa (Título com tamanho aumentado)
                 Text(
-                    text = currentTrack?.title ?: "Nenhuma música em reprodução",
+                    text = currentTrack?.title ?: stringResource(R.string.no_track_playing),
                     color = TextPrimary,
-                    fontSize = 22.sp,
+                    fontSize = 25.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-                // Artista / Álbum
+                // Artista / Álbum (com tamanho aumentado)
+                val unknownAlbumStr = stringResource(R.string.unknown_album)
                 val artistAlbumText = buildString {
-                    append(currentTrack?.artist ?: "Selecione uma pasta para tocar")
-                    if (!currentTrack?.album.isNullOrBlank() && currentTrack?.album != "Álbum Desconhecido") {
+                    append(currentTrack?.artist ?: stringResource(R.string.select_folder_to_play))
+                    if (!currentTrack?.album.isNullOrBlank() &&
+                        currentTrack?.album != unknownAlbumStr &&
+                        currentTrack?.album != "Álbum Desconhecido" &&
+                        currentTrack?.album != "Unknown Album"
+                    ) {
                         append(" • ")
                         append(currentTrack?.album)
                     }
@@ -167,34 +244,12 @@ fun PlayerScreen(
                 Text(
                     text = artistAlbumText,
                     color = TextSecondary,
-                    fontSize = 14.sp,
+                    fontSize = 16.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                // Linha sincronizada de letras (.LRC) se presente
-                if (!state.currentLyricsLine.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Rounded.GraphicEq,
-                            contentDescription = null,
-                            tint = NeedleRed,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = state.currentLyricsLine!!,
-                            color = NeedleRed,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Barra de Progresso Vermelha
                 ProgressBarSlider(
@@ -205,11 +260,14 @@ fun PlayerScreen(
             }
         }
 
+        // Espaçamento entre a área central e os botões inferiores de controle
+        Spacer(modifier = Modifier.height(12.dp))
+
         // ÚLTIMA LINHA DO LAYOUT: Linha exclusiva com os botões de controle de reprodução RESPONSIVOS
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .height(68.dp)
                 .padding(top = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -219,22 +277,24 @@ fun PlayerScreen(
                 onClick = { viewModel.toggleShuffle() },
                 icon = Icons.Rounded.Shuffle,
                 isActive = state.isShuffleEnabled,
-                minSize = 48.dp,
+                minSize = 56.dp,
+                iconSize = 30.dp,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
-                contentDescription = "Modo Aleatório"
+                contentDescription = stringResource(R.string.desc_shuffle)
             )
 
             // Anterior (<)
             MetallicButton(
                 onClick = { viewModel.previous() },
                 icon = Icons.Rounded.SkipPrevious,
-                minSize = 48.dp,
+                minSize = 56.dp,
+                iconSize = 30.dp,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
-                contentDescription = "Faixa Anterior"
+                contentDescription = stringResource(R.string.desc_previous)
             )
 
             // Play / Pause (|| / ▶) Centralizado em Destaque
@@ -242,22 +302,24 @@ fun PlayerScreen(
                 onClick = { viewModel.playPause() },
                 style = MetallicButtonStyle.Accent,
                 icon = if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                minSize = 52.dp,
+                minSize = 60.dp,
+                iconSize = 36.dp,
                 modifier = Modifier
                     .weight(1.25f)
                     .fillMaxHeight(),
-                contentDescription = if (state.isPlaying) "Pausar" else "Reproduzir"
+                contentDescription = if (state.isPlaying) stringResource(R.string.desc_pause) else stringResource(R.string.desc_play)
             )
 
             // Próximo (>)
             MetallicButton(
                 onClick = { viewModel.next() },
                 icon = Icons.Rounded.SkipNext,
-                minSize = 48.dp,
+                minSize = 56.dp,
+                iconSize = 30.dp,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
-                contentDescription = "Próxima Faixa"
+                contentDescription = stringResource(R.string.desc_next)
             )
 
             // Repetir
@@ -271,12 +333,162 @@ fun PlayerScreen(
                 onClick = { viewModel.cycleRepeatMode() },
                 icon = repeatIcon,
                 isActive = isRepeatActive,
-                minSize = 48.dp,
+                minSize = 56.dp,
+                iconSize = 30.dp,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
-                contentDescription = "Modo Repetir"
+                contentDescription = stringResource(R.string.desc_repeat)
             )
+        }
+    }
+
+    // Diálogo com as músicas da pasta atual
+    if (showTracksDialog) {
+        val folderPath = currentTrack?.folderPath ?: ""
+        val folderName = if (folderPath.isNotEmpty()) {
+            File(folderPath).name.ifEmpty { stringResource(R.string.current_folder_tracks) }
+        } else {
+            stringResource(R.string.current_folder_tracks)
+        }
+
+        FolderTracksDialog(
+            folderName = folderName,
+            tracks = folderTracks,
+            currentTrackUri = currentTrack?.uri,
+            onSelectTrack = { index ->
+                viewModel.playTrackInCurrentFolder(index)
+                showTracksDialog = false
+            },
+            onDismiss = { showTracksDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun FolderTracksDialog(
+    folderName: String,
+    tracks: List<com.joaohouto.clusterplayer.data.model.Track>,
+    currentTrackUri: String?,
+    onSelectTrack: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val itemShape = remember { RoundedCornerShape(8.dp) }
+    val itemBorder = remember { BorderStroke(1.dp, SurfaceCardBorder) }
+    val activeBorder = remember { BorderStroke(1.dp, NeedleRed) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .fillMaxHeight(0.85f),
+            shape = RoundedCornerShape(16.dp),
+            color = SurfaceCard,
+            border = BorderStroke(1.dp, SurfaceCardBorder)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = folderName,
+                            color = TextPrimary,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = stringResource(R.string.tracks_count, tracks.size),
+                            color = TextSecondary,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    MetallicButton(
+                        onClick = onDismiss,
+                        icon = Icons.Rounded.Close,
+                        minSize = 52.dp,
+                        contentDescription = stringResource(R.string.btn_close)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    itemsIndexed(
+                        items = tracks,
+                        key = { index, track ->
+                            if (track.id != 0L) track.id else "${track.uri}_$index"
+                        },
+                        contentType = { _, _ -> "track_item" }
+                    ) { index, track ->
+                        val isCurrent = track.uri == currentTrackUri
+                        val formattedIndex = remember(index) { String.format(Locale.getDefault(), "%02d", index + 1) }
+                        val formattedDuration = remember(track.durationMs) {
+                            val totalSeconds = (track.durationMs / 1000).coerceAtLeast(0)
+                            val minutes = totalSeconds / 60
+                            val seconds = totalSeconds % 60
+                            String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(itemShape)
+                                .background(if (isCurrent) SurfaceCard else DeepMetallicBackground)
+                                .border(if (isCurrent) activeBorder else itemBorder, itemShape)
+                                .clickable { onSelectTrack(index) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = formattedIndex,
+                                color = if (isCurrent) NeedleRed else TextSecondary,
+                                fontSize = 14.sp,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold,
+                                modifier = Modifier.width(32.dp)
+                            )
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = track.title,
+                                    color = if (isCurrent) NeedleRed else TextPrimary,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = track.artist,
+                                    color = TextSecondary,
+                                    fontSize = 13.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Text(
+                                text = formattedDuration,
+                                color = if (isCurrent) NeedleRed else TextSecondary,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

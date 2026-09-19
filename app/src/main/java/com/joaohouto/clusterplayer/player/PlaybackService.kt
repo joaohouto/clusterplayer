@@ -83,7 +83,7 @@ class PlaybackService : MediaSessionService() {
                 getString(com.joaohouto.clusterplayer.R.string.notification_channel_name),
                 android.app.NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Controles de reprodução do Cluster Player"
+                description = getString(com.joaohouto.clusterplayer.R.string.notification_channel_desc)
                 setShowBadge(false)
             }
             val notificationManager = getSystemService(android.app.NotificationManager::class.java)
@@ -306,6 +306,17 @@ class PlaybackService : MediaSessionService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
         return mediaSession
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        Log.d(TAG, "Task removed (app closed). Stopping playback.")
+        saveCurrentStateImmediate()
+        if (::player.isInitialized) {
+            player.stop()
+            player.clearMediaItems()
+        }
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {

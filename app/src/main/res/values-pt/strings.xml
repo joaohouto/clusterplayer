@@ -1,0 +1,39 @@
+<resources>
+    <string name="app_name">ClusterPlayer</string>
+    <string name="notification_channel_name">Cluster Player</string>
+    <string name="notification_channel_desc">Controles de reprodução do Cluster Player</string>
+
+    <string name="header_cluster_player">CLUSTER PLAYER</string>
+    <string name="header_folders_playlists">PASTAS &amp; PLAYLISTS</string>
+    <string name="btn_playlists_folders">Playlists / Pastas</string>
+    <string name="btn_back">Voltar</string>
+    <string name="btn_folder_tracks">Músicas</string>
+    <string name="btn_refresh">Atualizar</string>
+    <string name="btn_play_all">Reproduzir Todas</string>
+    <string name="btn_close">Fechar</string>
+    <string name="current_folder_tracks">Músicas da Pasta</string>
+    <string name="desc_back">Voltar para Pastas</string>
+    <string name="desc_folder_tracks">Ver músicas da pasta atual</string>
+
+    <string name="status_scanning">Varrendo armazenamento…</string>
+    <string name="empty_folders_title">Nenhuma pasta de música encontrada</string>
+    <string name="empty_folders_subtitle">Insira um pendrive USB ou adicione músicas ao armazenamento</string>
+    <string name="tracks_count">%1$d faixas</string>
+
+    <string name="no_track_playing">Nenhuma música em reprodução</string>
+    <string name="select_folder_to_play">Selecione uma pasta para tocar</string>
+    <string name="unknown_track">Faixa Desconhecida</string>
+    <string name="unknown_artist">Artista Desconhecido</string>
+    <string name="unknown_album">Álbum Desconhecido</string>
+
+    <string name="desc_shuffle">Modo Aleatório</string>
+    <string name="desc_previous">Faixa Anterior</string>
+    <string name="desc_play">Reproduzir</string>
+    <string name="desc_pause">Pausar</string>
+    <string name="desc_next">Próxima Faixa</string>
+    <string name="desc_repeat">Modo Repetir</string>
+    <string name="desc_album_art">Capa do Álbum</string>
+    <string name="desc_no_art">Sem Capa</string>
+    <string name="desc_refresh">Atualizar pastas</string>
+    <string name="desc_back_to_folders">Voltar para Pastas</string>
+</resources>

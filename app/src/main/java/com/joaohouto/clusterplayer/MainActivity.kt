@@ -99,6 +99,13 @@ class MainActivity : ComponentActivity() {
             requestPermissionLauncher.launch(permissions.toTypedArray())
         }
     }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (isFinishing) {
+            PlayerController.getInstance(this).stop()
+        }
+    }
 }
 
 @Composable

@@ -22,8 +22,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.joaohouto.clusterplayer.R
 import coil.request.ImageRequest
 import coil.size.Scale
 import com.joaohouto.clusterplayer.ui.theme.MetallicIntermediate
@@ -75,7 +77,7 @@ fun SquareAlbumArt(
                     .scale(Scale.FILL)
                     .crossfade(true)
                     .build(),
-                contentDescription = "Capa do Álbum",
+                contentDescription = stringResource(R.string.desc_album_art),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
@@ -89,7 +91,7 @@ fun SquareAlbumArt(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.MusicNote,
-                    contentDescription = "Sem Capa",
+                    contentDescription = stringResource(R.string.desc_no_art),
                     tint = TextSecondary,
                     modifier = Modifier.size(64.dp)
                 )

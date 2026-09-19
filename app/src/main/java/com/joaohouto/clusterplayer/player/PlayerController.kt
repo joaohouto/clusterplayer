@@ -307,6 +307,17 @@ class PlayerController private constructor(private val context: Context) {
         controller.play()
     }
 
+    fun stop() {
+        try {
+            stopPositionTicker()
+            mediaController?.stop()
+            mediaController?.clearMediaItems()
+            _uiState.value = _uiState.value.copy(isPlaying = false)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping player", e)
+        }
+    }
+
     fun release() {
         stopPositionTicker()
         mediaController?.release()

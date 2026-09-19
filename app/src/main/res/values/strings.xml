@@ -1,4 +1,39 @@
 <resources>
     <string name="app_name">ClusterPlayer</string>
     <string name="notification_channel_name">Cluster Player</string>
+    <string name="notification_channel_desc">Cluster Player playback controls</string>
+
+    <string name="header_cluster_player">CLUSTER PLAYER</string>
+    <string name="header_folders_playlists">FOLDERS &amp; PLAYLISTS</string>
+    <string name="btn_playlists_folders">Playlists / Folders</string>
+    <string name="btn_back">Back</string>
+    <string name="btn_folder_tracks">Tracks</string>
+    <string name="btn_refresh">Refresh</string>
+    <string name="btn_play_all">Play All</string>
+    <string name="btn_close">Close</string>
+    <string name="current_folder_tracks">Folder Tracks</string>
+    <string name="desc_back">Back to Folders</string>
+    <string name="desc_folder_tracks">View tracks in current folder</string>
+
+    <string name="status_scanning">Scanning storage…</string>
+    <string name="empty_folders_title">No music folders found</string>
+    <string name="empty_folders_subtitle">Insert a USB drive or add songs to storage</string>
+    <string name="tracks_count">%1$d tracks</string>
+
+    <string name="no_track_playing">No track playing</string>
+    <string name="select_folder_to_play">Select a folder to play</string>
+    <string name="unknown_track">Unknown Track</string>
+    <string name="unknown_artist">Unknown Artist</string>
+    <string name="unknown_album">Unknown Album</string>
+
+    <string name="desc_shuffle">Shuffle Mode</string>
+    <string name="desc_previous">Previous Track</string>
+    <string name="desc_play">Play</string>
+    <string name="desc_pause">Pause</string>
+    <string name="desc_next">Next Track</string>
+    <string name="desc_repeat">Repeat Mode</string>
+    <string name="desc_album_art">Album Art</string>
+    <string name="desc_no_art">No Album Art</string>
+    <string name="desc_refresh">Refresh folders</string>
+    <string name="desc_back_to_folders">Back to Folders</string>
 </resources>
