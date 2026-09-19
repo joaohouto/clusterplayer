@@ -20,7 +20,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -37,11 +37,12 @@ import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Surface
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.joaohouto.clusterplayer.ui.theme.SurfaceCard
 import com.joaohouto.clusterplayer.ui.theme.SurfaceCardBorder
 import java.io.File
-import java.util.Locale
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -131,10 +132,7 @@ fun PlayerScreen(
             ) {
                 // Botão para abrir listagem de músicas da pasta que está tocando atualmente (Fila de reprodução)
                 MetallicButton(
-                    onClick = {
-                        viewModel.loadTracksForCurrentFolder()
-                        showTracksDialog = true
-                    },
+                    onClick = { showTracksDialog = true },
                     icon = Icons.AutoMirrored.Rounded.QueueMusic,
                     text = stringResource(R.string.btn_folder_tracks),
                     minSize = 72.dp,
@@ -209,7 +207,7 @@ fun PlayerScreen(
                             Text(
                                 text = lyricsLine,
                                 color = NeedleRed,
-                                fontSize = 18.sp,
+                                fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -348,6 +346,17 @@ fun PlayerScreen(
         }
     }
 
+    // Estabilização de lambdas para que o FolderTracksDialog não recomponha a cada tick (200ms) de posição
+    val onSelectTrackLambda: (Int) -> Unit = remember(viewModel) {
+        { index ->
+            viewModel.playTrackInCurrentFolder(index)
+            showTracksDialog = false
+        }
+    }
+    val onDismissDialogLambda: () -> Unit = remember {
+        { showTracksDialog = false }
+    }
+
     // Diálogo com as músicas da pasta atual
     if (showTracksDialog) {
         val folderPath = currentTrack?.folderPath ?: ""
@@ -361,11 +370,8 @@ fun PlayerScreen(
             folderName = folderName,
             tracks = folderTracks,
             currentTrackUri = currentTrack?.uri,
-            onSelectTrack = { index ->
-                viewModel.playTrackInCurrentFolder(index)
-                showTracksDialog = false
-            },
-            onDismiss = { showTracksDialog = false }
+            onSelectTrack = onSelectTrackLambda,
+            onDismiss = onDismissDialogLambda
         )
     }
 }
@@ -382,7 +388,16 @@ private fun FolderTracksDialog(
     val itemBorder = remember { BorderStroke(1.dp, SurfaceCardBorder) }
     val activeBorder = remember { BorderStroke(1.dp, NeedleRed) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    // Rola instantaneamente a lista para posicionar na música atual que está tocando
+    val currentTrackIndex = remember(tracks, currentTrackUri) {
+        tracks.indexOfFirst { it.uri == currentTrackUri }.coerceAtLeast(0)
+    }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = currentTrackIndex)
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
@@ -428,73 +443,105 @@ private fun FolderTracksDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    itemsIndexed(
-                        items = tracks,
-                        key = { index, track ->
-                            if (track.id != 0L) track.id else "${track.uri}_$index"
+                    items(
+                        count = tracks.size,
+                        key = { index ->
+                            val track = tracks[index]
+                            if (track.id != 0L) track.id else track.uri
                         },
-                        contentType = { _, _ -> "track_item" }
-                    ) { index, track ->
-                        val isCurrent = track.uri == currentTrackUri
-                        val formattedIndex = remember(index) { String.format(Locale.getDefault(), "%02d", index + 1) }
-                        val formattedDuration = remember(track.durationMs) {
-                            val totalSeconds = (track.durationMs / 1000).coerceAtLeast(0)
-                            val minutes = totalSeconds / 60
-                            val seconds = totalSeconds % 60
-                            String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
-                        }
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(itemShape)
-                                .background(if (isCurrent) SurfaceCard else DeepMetallicBackground)
-                                .border(if (isCurrent) activeBorder else itemBorder, itemShape)
-                                .clickable { onSelectTrack(index) }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = formattedIndex,
-                                color = if (isCurrent) NeedleRed else TextSecondary,
-                                fontSize = 16.sp,
-                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold,
-                                modifier = Modifier.width(36.dp)
-                            )
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = track.title,
-                                    color = if (isCurrent) NeedleRed else TextPrimary,
-                                    fontSize = 19.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = track.artist,
-                                    color = TextSecondary,
-                                    fontSize = 15.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            Text(
-                                text = formattedDuration,
-                                color = if (isCurrent) NeedleRed else TextSecondary,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        contentType = { "track_item" }
+                    ) { index ->
+                        val track = tracks[index]
+                        TrackQueueItem(
+                            index = index,
+                            track = track,
+                            isCurrent = track.uri == currentTrackUri,
+                            itemShape = itemShape,
+                            itemBorder = itemBorder,
+                            activeBorder = activeBorder,
+                            onClick = { onSelectTrack(index) }
+                        )
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun TrackQueueItem(
+    index: Int,
+    track: com.joaohouto.clusterplayer.data.model.Track,
+    isCurrent: Boolean,
+    itemShape: Shape,
+    itemBorder: BorderStroke,
+    activeBorder: BorderStroke,
+    onClick: () -> Unit
+) {
+    val formattedIndex = remember(index) { formatTrackIndex(index) }
+    val formattedDuration = remember(track.durationMs) { formatTrackDuration(track.durationMs) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(itemShape)
+            .background(if (isCurrent) SurfaceCard else DeepMetallicBackground)
+            .border(if (isCurrent) activeBorder else itemBorder, itemShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = formattedIndex,
+            color = if (isCurrent) NeedleRed else TextSecondary,
+            fontSize = 16.sp,
+            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold,
+            modifier = Modifier.width(36.dp)
+        )
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = track.title,
+                color = if (isCurrent) NeedleRed else TextPrimary,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = track.artist,
+                color = TextSecondary,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Text(
+            text = formattedDuration,
+            color = if (isCurrent) NeedleRed else TextSecondary,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+private fun formatTrackIndex(index: Int): String {
+    val num = index + 1
+    return if (num < 10) "0$num" else num.toString()
+}
+
+private fun formatTrackDuration(durationMs: Long): String {
+    val totalSeconds = (durationMs / 1000).coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    val minStr = if (minutes < 10) "0$minutes" else minutes.toString()
+    val secStr = if (seconds < 10) "0$seconds" else seconds.toString()
+    return "$minStr:$secStr"
 }

@@ -269,6 +269,23 @@ class PlayerController private constructor(private val context: Context) {
         _uiState.value = _uiState.value.copy(repeatMode = nextMode)
     }
 
+    fun playTrackAtIndex(index: Int) {
+        val controller = mediaController ?: return
+        if (index in 0 until controller.mediaItemCount) {
+            controller.seekToDefaultPosition(index)
+            if (!controller.isPlaying) {
+                controller.play()
+            }
+        }
+    }
+
+    fun hasMediaItemsForFolder(folderPath: String): Boolean {
+        val controller = mediaController ?: return false
+        if (controller.mediaItemCount == 0) return false
+        val currentFolder = _uiState.value.currentTrack?.folderPath
+        return currentFolder == folderPath
+    }
+
     fun playFolder(folderPath: String, startIndex: Int = 0) {
         controllerScope.launch {
             val tracks = repository.getTracksForFolderSync(folderPath)

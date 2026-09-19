@@ -7,11 +7,18 @@ import com.joaohouto.clusterplayer.data.model.Track
 import com.joaohouto.clusterplayer.data.repository.MusicRepository
 import com.joaohouto.clusterplayer.player.PlaybackUiState
 import com.joaohouto.clusterplayer.player.PlayerController
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class PlayerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val playerController = PlayerController.getInstance(application)
@@ -19,25 +26,39 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     val playbackState: StateFlow<PlaybackUiState> = playerController.uiState
 
-    private val _currentFolderTracks = MutableStateFlow<List<Track>>(emptyList())
-    val currentFolderTracks: StateFlow<List<Track>> = _currentFolderTracks.asStateFlow()
+    // Automatically and reactively pre-loads the tracks of the currently playing folder on Dispatchers.IO
+    // so that opening the queue dialog is completely instant and has 0 wait time.
+    val currentFolderTracks: StateFlow<List<Track>> = playbackState
+        .map { it.currentTrack?.folderPath }
+        .distinctUntilChanged()
+        .flatMapLatest { folderPath ->
+            if (folderPath.isNullOrEmpty()) {
+                flowOf(emptyList())
+            } else {
+                repository.getTracksForFolder(folderPath)
+            }
+        }
+        .flowOn(Dispatchers.IO)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = emptyList()
+        )
 
     init {
         playerController.initialize()
     }
 
     fun loadTracksForCurrentFolder() {
-        val folderPath = playbackState.value.currentTrack?.folderPath
-        if (!folderPath.isNullOrEmpty()) {
-            viewModelScope.launch {
-                _currentFolderTracks.value = repository.getTracksForFolderSync(folderPath)
-            }
-        }
+        // Pre-loaded reactively by currentFolderTracks
     }
 
     fun playTrackInCurrentFolder(trackIndex: Int) {
         val folderPath = playbackState.value.currentTrack?.folderPath
-        if (!folderPath.isNullOrEmpty()) {
+        if (!folderPath.isNullOrEmpty() && playerController.hasMediaItemsForFolder(folderPath)) {
+            // Fast path: seek directly within current ExoPlayer playlist (0ms latency, no DB query or MediaItem recreation)
+            playerController.playTrackAtIndex(trackIndex)
+        } else if (!folderPath.isNullOrEmpty()) {
             playerController.playFolder(folderPath, trackIndex)
         }
     }
