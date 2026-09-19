@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -49,7 +47,6 @@ import com.joaohouto.clusterplayer.ui.theme.DeepMetallicBackground
 import com.joaohouto.clusterplayer.ui.theme.NeedleRed
 import com.joaohouto.clusterplayer.ui.theme.TextPrimary
 import com.joaohouto.clusterplayer.ui.theme.TextSecondary
-import kotlin.math.abs
 
 @Composable
 fun PlayerScreen(
@@ -62,7 +59,7 @@ fun PlayerScreen(
 
     var dragAmountX by remember { mutableFloatStateOf(0f) }
 
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(DeepMetallicBackground)
@@ -85,17 +82,44 @@ fun PlayerScreen(
                     }
                 )
             }
-            .padding(24.dp)
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
+        // Linha Superior: Logo/Título e Botão de navegação "Playlists / Pastas"
         Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.spacedBy(28.dp)
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Lado Esquerdo: Capa da música quadrada (1:1, cantos 8dp, sem aros metálicos circulares)
+            Text(
+                text = "CLUSTER PLAYER",
+                color = TextSecondary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.5.sp
+            )
+
+            MetallicButton(
+                onClick = onNavigateToHome,
+                icon = Icons.Rounded.Folder,
+                text = "Playlists / Pastas",
+                minSize = 56.dp,
+                contentDescription = "Voltar para Pastas"
+            )
+        }
+
+        // Linha Central: Capa de Álbum (Tamanho Médio) + Metadados e Barra de Progresso
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(28.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Capa da música quadrada de tamanho médio (160x160 dp) com cantos 8dp
             Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .aspectRatio(1f),
+                modifier = Modifier.size(160.dp),
                 contentAlignment = Alignment.Center
             ) {
                 SquareAlbumArt(
@@ -105,149 +129,128 @@ fun PlayerScreen(
                 )
             }
 
-            // Lado Direito: Topo (Navegação), Centro (Metadados e Progresso), Base (Controles)
+            // Metadados, Letra LRC e Barra de Progresso
             Column(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .weight(1f),
-                verticalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
             ) {
-                // Lado Direito Superior: Botão Playlists / Pastas
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    MetallicButton(
-                        onClick = onNavigateToHome,
-                        icon = Icons.Rounded.Folder,
-                        text = "Playlists / Pastas",
-                        minSize = 60.dp,
-                        contentDescription = "Voltar para Pastas"
-                    )
+                // Nome da faixa (destaque 22-24sp, 1-2 linhas, elipse)
+                Text(
+                    text = currentTrack?.title ?: "Nenhuma música em reprodução",
+                    color = TextPrimary,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Artista / Álbum (16sp, #9A9DA6)
+                val artistAlbumText = buildString {
+                    append(currentTrack?.artist ?: "Selecione uma pasta para tocar")
+                    if (!currentTrack?.album.isNullOrBlank() && currentTrack?.album != "Álbum Desconhecido") {
+                        append(" • ")
+                        append(currentTrack?.album)
+                    }
+                }
+                Text(
+                    text = artistAlbumText,
+                    color = TextSecondary,
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                // Linha sincronizada de letras (.LRC) se presente
+                if (!state.currentLyricsLine.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Rounded.GraphicEq,
+                            contentDescription = null,
+                            tint = NeedleRed,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = state.currentLyricsLine!!,
+                            color = NeedleRed,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
-                // Lado Direito Central: Metadados, Letra e Barra de Progresso
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    // Nome da faixa (destaque 22-24sp, 1-2 linhas, elipse)
-                    Text(
-                        text = currentTrack?.title ?: "Nenhuma música em reprodução",
-                        color = TextPrimary,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Artista / Álbum (16sp, #9A9DA6)
-                    val artistAlbumText = buildString {
-                        append(currentTrack?.artist ?: "Selecione uma pasta para tocar")
-                        if (!currentTrack?.album.isNullOrBlank() && currentTrack?.album != "Álbum Desconhecido") {
-                            append(" • ")
-                            append(currentTrack?.album)
-                        }
-                    }
-                    Text(
-                        text = artistAlbumText,
-                        color = TextSecondary,
-                        fontSize = 16.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    // Linha sincronizada de letras (.LRC) se presente
-                    if (!state.currentLyricsLine.isNullOrBlank()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.GraphicEq,
-                                contentDescription = null,
-                                tint = NeedleRed,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = state.currentLyricsLine!!,
-                                color = NeedleRed,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Barra de Progresso Vermelha
-                    ProgressBarSlider(
-                        currentPositionMs = state.currentPositionMs,
-                        durationMs = state.durationMs,
-                        onSeek = { targetMs -> viewModel.seekTo(targetMs) }
-                    )
-                }
-
-                // Base: Controles de Reprodução (Mínimo 60x60 dp)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Shuffle (Aleatório)
-                    MetallicButton(
-                        onClick = { viewModel.toggleShuffle() },
-                        icon = Icons.Rounded.Shuffle,
-                        isActive = state.isShuffleEnabled,
-                        minSize = 60.dp,
-                        contentDescription = "Modo Aleatório"
-                    )
-
-                    // Anterior (<) (Muda para anterior ou reinicia se > 3s)
-                    MetallicButton(
-                        onClick = { viewModel.previous() },
-                        icon = Icons.Rounded.SkipPrevious,
-                        minSize = 60.dp,
-                        contentDescription = "Faixa Anterior"
-                    )
-
-                    // Play / Pause (|| / ▶) Centralizado em Destaque
-                    MetallicButton(
-                        onClick = { viewModel.playPause() },
-                        style = MetallicButtonStyle.Accent,
-                        icon = if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        minSize = 68.dp,
-                        contentDescription = if (state.isPlaying) "Pausar" else "Reproduzir"
-                    )
-
-                    // Próximo (>)
-                    MetallicButton(
-                        onClick = { viewModel.next() },
-                        icon = Icons.Rounded.SkipNext,
-                        minSize = 60.dp,
-                        contentDescription = "Próxima Faixa"
-                    )
-
-                    // Repetir (Desativado, Repetir Todas, Repetir Uma)
-                    val isRepeatActive = state.repeatMode != Player.REPEAT_MODE_OFF
-                    val repeatIcon = if (state.repeatMode == Player.REPEAT_MODE_ONE) {
-                        Icons.Rounded.RepeatOne
-                    } else {
-                        Icons.Rounded.Repeat
-                    }
-                    MetallicButton(
-                        onClick = { viewModel.cycleRepeatMode() },
-                        icon = repeatIcon,
-                        isActive = isRepeatActive,
-                        minSize = 60.dp,
-                        contentDescription = "Modo Repetir"
-                    )
-                }
+                // Barra de Progresso Vermelha
+                ProgressBarSlider(
+                    currentPositionMs = state.currentPositionMs,
+                    durationMs = state.durationMs,
+                    onSeek = { targetMs -> viewModel.seekTo(targetMs) }
+                )
             }
+        }
+
+        // ÚLTIMA LINHA DO LAYOUT: Linha exclusiva com os botões de controle de reprodução
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Shuffle (Aleatório)
+            MetallicButton(
+                onClick = { viewModel.toggleShuffle() },
+                icon = Icons.Rounded.Shuffle,
+                isActive = state.isShuffleEnabled,
+                minSize = 60.dp,
+                contentDescription = "Modo Aleatório"
+            )
+
+            // Anterior (<) (Muda para anterior ou reinicia se > 3s)
+            MetallicButton(
+                onClick = { viewModel.previous() },
+                icon = Icons.Rounded.SkipPrevious,
+                minSize = 60.dp,
+                contentDescription = "Faixa Anterior"
+            )
+
+            // Play / Pause (|| / ▶) Centralizado em Destaque
+            MetallicButton(
+                onClick = { viewModel.playPause() },
+                style = MetallicButtonStyle.Accent,
+                icon = if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                minSize = 68.dp,
+                contentDescription = if (state.isPlaying) "Pausar" else "Reproduzir"
+            )
+
+            // Próximo (>)
+            MetallicButton(
+                onClick = { viewModel.next() },
+                icon = Icons.Rounded.SkipNext,
+                minSize = 60.dp,
+                contentDescription = "Próxima Faixa"
+            )
+
+            // Repetir (Desativado, Repetir Todas, Repetir Uma)
+            val isRepeatActive = state.repeatMode != Player.REPEAT_MODE_OFF
+            val repeatIcon = if (state.repeatMode == Player.REPEAT_MODE_ONE) {
+                Icons.Rounded.RepeatOne
+            } else {
+                Icons.Rounded.Repeat
+            }
+            MetallicButton(
+                onClick = { viewModel.cycleRepeatMode() },
+                icon = repeatIcon,
+                isActive = isRepeatActive,
+                minSize = 60.dp,
+                contentDescription = "Modo Repetir"
+            )
         }
     }
 }

@@ -35,6 +35,8 @@ class PlaybackService : MediaSessionService() {
         private const val TAG = "PlaybackService"
         private const val POSITION_SAVE_INTERVAL_MS = 3000L
         private const val MAX_LOAD_RETRIES = 3
+        private const val NOTIFICATION_CHANNEL_ID = "cluster_player_channel"
+        private const val NOTIFICATION_ID = 1001
 
         @Volatile
         private var mediaSessionInstance: MediaSession? = null
@@ -60,6 +62,9 @@ class PlaybackService : MediaSessionService() {
         repository = MusicRepository.getInstance(this)
         audioEffectsManager = AudioEffectsManager()
 
+        setupNotificationChannel()
+        setupNotificationProvider()
+
         initializePlayer()
         initializeMediaSession()
         setupPlayerListeners()
@@ -69,6 +74,31 @@ class PlaybackService : MediaSessionService() {
         serviceScope.launch {
             restoreAutoplayState()
         }
+    }
+
+    private fun setupNotificationChannel() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = android.app.NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                getString(com.joaohouto.clusterplayer.R.string.notification_channel_name),
+                android.app.NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Controles de reprodução do Cluster Player"
+                setShowBadge(false)
+            }
+            val notificationManager = getSystemService(android.app.NotificationManager::class.java)
+            notificationManager?.createNotificationChannel(channel)
+        }
+    }
+
+    private fun setupNotificationProvider() {
+        val notificationProvider = androidx.media3.session.DefaultMediaNotificationProvider.Builder(this)
+            .setNotificationId(NOTIFICATION_ID)
+            .setChannelId(NOTIFICATION_CHANNEL_ID)
+            .setChannelName(com.joaohouto.clusterplayer.R.string.notification_channel_name)
+            .build()
+        notificationProvider.setSmallIcon(com.joaohouto.clusterplayer.R.mipmap.ic_launcher)
+        setMediaNotificationProvider(notificationProvider)
     }
 
     private fun initializePlayer() {

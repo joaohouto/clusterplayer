@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">ClusterPlayer</string>
+    <string name="notification_channel_name">Cluster Player</string>
 </resources>
