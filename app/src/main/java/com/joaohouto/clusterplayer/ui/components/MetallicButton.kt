@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.joaohouto.clusterplayer.ui.theme.MetallicBorder
@@ -57,6 +58,7 @@ fun MetallicButton(
     isActive: Boolean = false,
     minSize: Dp = 60.dp,
     iconSize: Dp = 28.dp,
+    textSize: TextUnit = 16.sp,
     contentDescription: String? = null
 ) {
     val shape = RoundedCornerShape(12.dp)
@@ -125,7 +127,7 @@ fun MetallicButton(
                     Text(
                         text = text,
                         color = contentColor,
-                        fontSize = 15.sp,
+                        fontSize = textSize,
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = 0.5.sp
                     )

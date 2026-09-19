@@ -143,15 +143,15 @@ fun ProgressBarSlider(
             Text(
                 text = formatTime(displayedElapsedMs),
                 color = TextSecondary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
             )
 
             Text(
                 text = "-${formatTime(remainingMs)}",
                 color = TextSecondary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
             )
         }
     }

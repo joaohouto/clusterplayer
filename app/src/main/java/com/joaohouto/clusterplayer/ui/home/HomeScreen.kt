@@ -17,14 +17,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -52,7 +49,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.media3.common.Player
 import com.joaohouto.clusterplayer.R
 import com.joaohouto.clusterplayer.data.model.Folder
@@ -67,7 +63,6 @@ import com.joaohouto.clusterplayer.ui.theme.SurfaceCard
 import com.joaohouto.clusterplayer.ui.theme.SurfaceCardBorder
 import com.joaohouto.clusterplayer.ui.theme.TextPrimary
 import com.joaohouto.clusterplayer.ui.theme.TextSecondary
-import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -78,8 +73,6 @@ fun HomeScreen(
     val folders by viewModel.folders.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
-    val selectedFolder by viewModel.selectedFolder.collectAsState()
-    val folderTracks by viewModel.folderTracks.collectAsState()
 
     Box(
         modifier = modifier
@@ -176,8 +169,7 @@ fun HomeScreen(
                     items(folders, key = { it.path }, contentType = { "folder_card" }) { folder ->
                         FolderCard(
                             folder = folder,
-                            onFolderClick = { viewModel.selectFolder(folder) },
-                            onPlayAllClick = {
+                            onClick = {
                                 viewModel.playFolder(folder.path)
                                 onNavigateToPlayer()
                             }
@@ -203,39 +195,19 @@ fun HomeScreen(
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
-
-        // Selected Folder Track List Dialog
-        if (selectedFolder != null) {
-            FolderTracksDialog(
-                folder = selectedFolder!!,
-                tracks = folderTracks,
-                onPlayFolder = {
-                    viewModel.playFolder(selectedFolder!!.path)
-                    viewModel.selectFolder(null)
-                    onNavigateToPlayer()
-                },
-                onPlayTrack = { index ->
-                    viewModel.playTrackInFolder(selectedFolder!!.path, index)
-                    viewModel.selectFolder(null)
-                    onNavigateToPlayer()
-                },
-                onDismiss = { viewModel.selectFolder(null) }
-            )
-        }
     }
 }
 
 @Composable
 private fun FolderCard(
     folder: Folder,
-    onFolderClick: () -> Unit,
-    onPlayAllClick: () -> Unit
+    onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onFolderClick),
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = SurfaceCard),
         border = BorderStroke(1.dp, SurfaceCardBorder),
         shape = RoundedCornerShape(14.dp)
@@ -243,13 +215,13 @@ private fun FolderCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 20.dp, vertical = 18.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(54.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(MetallicIntermediate),
                 contentAlignment = Alignment.Center
             ) {
@@ -257,39 +229,45 @@ private fun FolderCard(
                     imageVector = Icons.Rounded.Folder,
                     contentDescription = null,
                     tint = NeedleRed,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(34.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = folder.name,
                     color = TextPrimary,
-                    fontSize = 17.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = stringResource(R.string.tracks_count, folder.trackCount),
                     color = TextSecondary,
-                    fontSize = 13.sp
+                    fontSize = 15.sp
                 )
             }
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Direct "Reproduzir Todas" button
-            MetallicButton(
-                onClick = onPlayAllClick,
-                style = MetallicButtonStyle.Accent,
-                icon = Icons.Rounded.PlayArrow,
-                minSize = 56.dp,
-                contentDescription = stringResource(R.string.btn_play_all)
-            )
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(NeedleRed.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.PlayArrow,
+                    contentDescription = stringResource(R.string.btn_play_all),
+                    tint = NeedleRed,
+                    modifier = Modifier.size(30.dp)
+                )
+            }
         }
     }
 }
@@ -423,160 +401,4 @@ private fun FullControlsBottomPlaybackBar(
             }
         }
     }
-}
-
-@Composable
-private fun FolderTracksDialog(
-    folder: Folder,
-    tracks: List<com.joaohouto.clusterplayer.data.model.Track>,
-    onPlayFolder: () -> Unit,
-    onPlayTrack: (Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val itemShape = remember { RoundedCornerShape(8.dp) }
-    val itemBorder = remember { BorderStroke(1.dp, SurfaceCardBorder) }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .fillMaxHeight(0.85f),
-            shape = RoundedCornerShape(16.dp),
-            color = SurfaceCard,
-            border = BorderStroke(1.dp, SurfaceCardBorder)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(20.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = folder.name,
-                            color = TextPrimary,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = stringResource(R.string.tracks_count, folder.trackCount),
-                            color = TextSecondary,
-                            fontSize = 14.sp
-                        )
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        MetallicButton(
-                            onClick = onPlayFolder,
-                            style = MetallicButtonStyle.Accent,
-                            icon = Icons.Rounded.PlayArrow,
-                            text = stringResource(R.string.btn_play_all),
-                            minSize = 56.dp
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        MetallicButton(
-                            onClick = onDismiss,
-                            icon = Icons.Rounded.Close,
-                            minSize = 56.dp,
-                            contentDescription = stringResource(R.string.btn_close)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    itemsIndexed(
-                        items = tracks,
-                        key = { index, track ->
-                            if (track.id != 0L) track.id else "${track.uri}_$index"
-                        },
-                        contentType = { _, _ -> "track_item" }
-                    ) { index, track ->
-                        TrackListItem(
-                            index = index,
-                            track = track,
-                            shape = itemShape,
-                            border = itemBorder,
-                            onClick = { onPlayTrack(index) }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TrackListItem(
-    index: Int,
-    track: com.joaohouto.clusterplayer.data.model.Track,
-    shape: RoundedCornerShape,
-    border: BorderStroke,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val formattedIndex = remember(index) { String.format(Locale.getDefault(), "%02d", index + 1) }
-    val formattedDuration = remember(track.durationMs) { formatDuration(track.durationMs) }
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(DeepMetallicBackground)
-            .border(border, shape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = formattedIndex,
-            color = TextSecondary,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.width(32.dp)
-        )
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = track.title,
-                color = TextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = track.artist,
-                color = TextSecondary,
-                fontSize = 13.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Text(
-            text = formattedDuration,
-            color = TextSecondary,
-            fontSize = 13.sp
-        )
-    }
-}
-
-private fun formatDuration(ms: Long): String {
-    val totalSeconds = (ms / 1000).coerceAtLeast(0)
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
 }

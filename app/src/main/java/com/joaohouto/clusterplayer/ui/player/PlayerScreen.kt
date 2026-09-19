@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -119,7 +120,7 @@ fun PlayerScreen(
             Text(
                 text = stringResource(R.string.header_cluster_player),
                 color = TextSecondary,
-                fontSize = 13.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.5.sp
             )
@@ -128,7 +129,7 @@ fun PlayerScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Botão para abrir listagem de músicas da pasta que está tocando atualmente
+                // Botão para abrir listagem de músicas da pasta que está tocando atualmente (Fila de reprodução)
                 MetallicButton(
                     onClick = {
                         viewModel.loadTracksForCurrentFolder()
@@ -136,16 +137,18 @@ fun PlayerScreen(
                     },
                     icon = Icons.AutoMirrored.Rounded.QueueMusic,
                     text = stringResource(R.string.btn_folder_tracks),
-                    minSize = 48.dp,
+                    minSize = 72.dp,
+                    textSize = 16.sp,
                     contentDescription = stringResource(R.string.desc_folder_tracks)
                 )
 
-                // Botão de Voltar para a tela de Pastas / Playlists
+                // Botão de Pastas (Voltar para a tela de Pastas / Playlists)
                 MetallicButton(
                     onClick = onNavigateToHome,
-                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                    icon = Icons.Rounded.Folder,
                     text = stringResource(R.string.btn_back),
-                    minSize = 48.dp,
+                    minSize = 72.dp,
+                    textSize = 16.sp,
                     contentDescription = stringResource(R.string.desc_back)
                 )
             }
@@ -187,7 +190,7 @@ fun PlayerScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(26.dp),
+                        .height(32.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     val lyricsLine = state.currentLyricsLine
@@ -200,14 +203,14 @@ fun PlayerScreen(
                                 imageVector = Icons.Rounded.GraphicEq,
                                 contentDescription = null,
                                 tint = NeedleRed,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(22.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = lyricsLine,
                                 color = NeedleRed,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -215,13 +218,13 @@ fun PlayerScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(40.dp))
 
                 // Nome da faixa (Título com tamanho aumentado)
                 Text(
                     text = currentTrack?.title ?: stringResource(R.string.no_track_playing),
                     color = TextPrimary,
-                    fontSize = 25.sp,
+                    fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -245,12 +248,13 @@ fun PlayerScreen(
                 Text(
                     text = artistAlbumText,
                     color = TextSecondary,
-                    fontSize = 16.sp,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(40.dp))
 
                 // Barra de Progresso Vermelha
                 ProgressBarSlider(
@@ -268,8 +272,8 @@ fun PlayerScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(68.dp)
-                .padding(top = 4.dp),
+                .height(100.dp)
+                .padding(top = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -279,7 +283,7 @@ fun PlayerScreen(
                 icon = Icons.Rounded.Shuffle,
                 isActive = state.isShuffleEnabled,
                 minSize = 56.dp,
-                iconSize = 30.dp,
+                iconSize = 40.dp,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
@@ -291,7 +295,7 @@ fun PlayerScreen(
                 onClick = { viewModel.previous() },
                 icon = Icons.Rounded.SkipPrevious,
                 minSize = 56.dp,
-                iconSize = 30.dp,
+                iconSize = 40.dp,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
@@ -304,7 +308,7 @@ fun PlayerScreen(
                 style = MetallicButtonStyle.Accent,
                 icon = if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 minSize = 60.dp,
-                iconSize = 36.dp,
+                iconSize = 40.dp,
                 modifier = Modifier
                     .weight(1.25f)
                     .fillMaxHeight(),
@@ -316,7 +320,7 @@ fun PlayerScreen(
                 onClick = { viewModel.next() },
                 icon = Icons.Rounded.SkipNext,
                 minSize = 56.dp,
-                iconSize = 30.dp,
+                iconSize = 40.dp,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
@@ -335,7 +339,7 @@ fun PlayerScreen(
                 icon = repeatIcon,
                 isActive = isRepeatActive,
                 minSize = 56.dp,
-                iconSize = 30.dp,
+                iconSize = 40.dp,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
@@ -401,7 +405,7 @@ private fun FolderTracksDialog(
                         Text(
                             text = folderName,
                             color = TextPrimary,
-                            fontSize = 20.sp,
+                            fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -409,7 +413,7 @@ private fun FolderTracksDialog(
                         Text(
                             text = stringResource(R.string.tracks_count, tracks.size),
                             color = TextSecondary,
-                            fontSize = 14.sp
+                            fontSize = 16.sp
                         )
                     }
 
@@ -456,24 +460,24 @@ private fun FolderTracksDialog(
                             Text(
                                 text = formattedIndex,
                                 color = if (isCurrent) NeedleRed else TextSecondary,
-                                fontSize = 14.sp,
+                                fontSize = 16.sp,
                                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold,
-                                modifier = Modifier.width(32.dp)
+                                modifier = Modifier.width(36.dp)
                             )
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = track.title,
                                     color = if (isCurrent) NeedleRed else TextPrimary,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 19.sp,
+                                    fontWeight = FontWeight.SemiBold,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = track.artist,
                                     color = TextSecondary,
-                                    fontSize = 13.sp,
+                                    fontSize = 15.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -484,7 +488,8 @@ private fun FolderTracksDialog(
                             Text(
                                 text = formattedDuration,
                                 color = if (isCurrent) NeedleRed else TextSecondary,
-                                fontSize = 13.sp
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }

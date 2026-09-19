@@ -6,14 +6,14 @@
     <string name="header_cluster_player">CLUSTER PLAYER</string>
     <string name="header_folders_playlists">PASTAS &amp; PLAYLISTS</string>
     <string name="btn_playlists_folders">Playlists / Pastas</string>
-    <string name="btn_back">Voltar</string>
-    <string name="btn_folder_tracks">Músicas</string>
+    <string name="btn_back">Pastas</string>
+    <string name="btn_folder_tracks">Fila de reprodução</string>
     <string name="btn_refresh">Atualizar</string>
     <string name="btn_play_all">Reproduzir Todas</string>
     <string name="btn_close">Fechar</string>
-    <string name="current_folder_tracks">Músicas da Pasta</string>
-    <string name="desc_back">Voltar para Pastas</string>
-    <string name="desc_folder_tracks">Ver músicas da pasta atual</string>
+    <string name="current_folder_tracks">Fila de Reprodução</string>
+    <string name="desc_back">Ir para Pastas</string>
+    <string name="desc_folder_tracks">Ver fila de reprodução</string>
 
     <string name="status_scanning">Varrendo armazenamento…</string>
     <string name="empty_folders_title">Nenhuma pasta de música encontrada</string>
