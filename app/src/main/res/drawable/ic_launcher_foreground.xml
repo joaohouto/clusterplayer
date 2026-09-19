@@ -1,0 +1,60 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer Circular Disc / Automotive Button Housing -->
+    <path android:pathData="M54,54m-28,0a28,28 0,1 1,56 0a28,28 0,1 1,-56 0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="54"
+                android:startY="26"
+                android:endX="54"
+                android:endY="82"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#363A44" />
+                <item android:offset="0.5" android:color="#1C1E23" />
+                <item android:offset="1.0" android:color="#121316" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Bezel Ring Highlight -->
+    <path
+        android:pathData="M54,54m-28,0a28,28 0,1 1,56 0a28,28 0,1 1,-56 0"
+        android:strokeWidth="1.5"
+        android:strokeColor="#40FFFFFF"
+        android:fillColor="#00000000" />
+
+    <!-- Sporty Needle Red Inner Ring Accent -->
+    <path
+        android:pathData="M54,54m-24,0a24,24 0,1 1,48 0a24,24 0,1 1,-48 0"
+        android:strokeWidth="1.2"
+        android:strokeColor="#E61924"
+        android:fillColor="#00000000" />
+
+    <!-- Play Button Drop Shadow -->
+    <path
+        android:pathData="M46,42 C46,40 48.2,38.7 49.9,39.8 L71.5,53.3 C73.1,54.3 73.1,56.7 71.5,57.7 L49.9,71.2 C48.2,72.3 46,71 46,69 Z"
+        android:fillColor="#50000000" />
+
+    <!-- Light Gray Gradient Play Button Symbol -->
+    <path android:pathData="M46,40.5 C46,38.5 48.2,37.2 49.9,38.3 L71.5,51.8 C73.1,52.8 73.1,55.2 71.5,56.2 L49.9,69.7 C48.2,70.8 46,69.5 46,67.5 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="46"
+                android:startY="36"
+                android:endX="72"
+                android:endY="72"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFFFFF" />
+                <item android:offset="0.35" android:color="#F0F2F6" />
+                <item android:offset="0.7" android:color="#D2D6DE" />
+                <item android:offset="1.0" android:color="#A2A7B4" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+</vector>
