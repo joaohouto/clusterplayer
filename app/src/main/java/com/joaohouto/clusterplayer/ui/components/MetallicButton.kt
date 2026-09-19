@@ -101,10 +101,8 @@ fun MetallicButton(
     ) {
         Box(
             modifier = Modifier
-                .defaultMinSize(minWidth = minSize, minHeight = minSize)
-                .fillMaxWidth()
-                .fillMaxHeight()
                 .background(backgroundBrush)
+                .defaultMinSize(minWidth = minSize, minHeight = minSize)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {

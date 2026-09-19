@@ -414,14 +414,14 @@ private fun FullControlsBottomPlaybackBar(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(82.dp),
+            .height(76.dp),
         color = SurfaceCard,
         border = BorderStroke(1.dp, SurfaceCardBorder)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 14.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Lado Esquerdo: Capa e Metadados (clicável para abrir o Player)
@@ -435,10 +435,10 @@ private fun FullControlsBottomPlaybackBar(
             ) {
                 SquareAlbumArt(
                     uriOrPath = track.path.ifEmpty { track.uri },
-                    modifier = Modifier.size(60.dp)
+                    modifier = Modifier.size(52.dp)
                 )
 
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 Column(
                     modifier = Modifier.weight(1f),
@@ -447,7 +447,7 @@ private fun FullControlsBottomPlaybackBar(
                     Text(
                         text = track.title,
                         color = TextPrimary,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -456,18 +456,18 @@ private fun FullControlsBottomPlaybackBar(
                     Text(
                         text = track.artist,
                         color = TextSecondary,
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             // Lado Direito: Todos os controles de reprodução
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Shuffle (Aleatório)
@@ -475,7 +475,7 @@ private fun FullControlsBottomPlaybackBar(
                     onClick = onToggleShuffle,
                     icon = Icons.Rounded.Shuffle,
                     isActive = isShuffleEnabled,
-                    minSize = 52.dp,
+                    minSize = 46.dp,
                     contentDescription = "Modo Aleatório"
                 )
 
@@ -483,7 +483,7 @@ private fun FullControlsBottomPlaybackBar(
                 MetallicButton(
                     onClick = onPrevious,
                     icon = Icons.Rounded.SkipPrevious,
-                    minSize = 52.dp,
+                    minSize = 46.dp,
                     contentDescription = "Faixa Anterior"
                 )
 
@@ -492,7 +492,7 @@ private fun FullControlsBottomPlaybackBar(
                     onClick = onPlayPause,
                     style = MetallicButtonStyle.Accent,
                     icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    minSize = 56.dp,
+                    minSize = 50.dp,
                     contentDescription = if (isPlaying) "Pausar" else "Reproduzir"
                 )
 
@@ -500,7 +500,7 @@ private fun FullControlsBottomPlaybackBar(
                 MetallicButton(
                     onClick = onNext,
                     icon = Icons.Rounded.SkipNext,
-                    minSize = 52.dp,
+                    minSize = 46.dp,
                     contentDescription = "Próxima Faixa"
                 )
 
@@ -515,7 +515,7 @@ private fun FullControlsBottomPlaybackBar(
                     onClick = onCycleRepeatMode,
                     icon = repeatIcon,
                     isActive = isRepeatActive,
-                    minSize = 52.dp,
+                    minSize = 46.dp,
                     contentDescription = "Modo Repetir"
                 )
             }
