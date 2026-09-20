@@ -33,6 +33,8 @@ import com.joaohouto.clusterplayer.ui.player.PlayerViewModel
 import com.joaohouto.clusterplayer.ui.theme.ClusterPlayerTheme
 import com.joaohouto.clusterplayer.ui.theme.DeepMetallicBackground
 
+import android.view.WindowManager
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
@@ -71,10 +73,24 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val accentThemeId by preferencesDataStore.accentThemeFlow.collectAsState(initial = "needle_red")
-            val crossfadeSeconds by preferencesDataStore.crossfadeSecondsFlow.collectAsState(initial = 3)
+            val crossfadeSeconds by preferencesDataStore.crossfadeSecondsFlow.collectAsState(initial = 0)
+            val appVolumePercent by preferencesDataStore.appVolumePercentFlow.collectAsState(initial = 100)
+            val isLoudnessEnabled by preferencesDataStore.loudnessBoostFlow.collectAsState(initial = false)
+            val isKeepScreenOn by preferencesDataStore.keepScreenOnFlow.collectAsState(initial = true)
+            val isShowLyrics by preferencesDataStore.showLyricsFlow.collectAsState(initial = true)
+            val isAutoplayOnStart by preferencesDataStore.autoplayOnStartFlow.collectAsState(initial = true)
+
             val currentAccent = remember(accentThemeId) { getAccentThemeById(accentThemeId) }
             val coroutineScope = rememberCoroutineScope()
             var showSettingsDialog by remember { mutableStateOf(false) }
+
+            LaunchedEffect(isKeepScreenOn) {
+                if (isKeepScreenOn) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+            }
 
             ClusterPlayerTheme(accentTheme = currentAccent) {
                 Surface(
@@ -87,6 +103,7 @@ class MainActivity : ComponentActivity() {
                     ClusterApp(
                         homeViewModel = homeViewModel,
                         playerViewModel = playerViewModel,
+                        showLyrics = isShowLyrics,
                         onOpenSettings = { showSettingsDialog = true }
                     )
 
@@ -94,6 +111,11 @@ class MainActivity : ComponentActivity() {
                         SettingsDialog(
                             currentAccentTheme = currentAccent,
                             currentCrossfadeSeconds = crossfadeSeconds,
+                            currentAppVolumePercent = appVolumePercent,
+                            isLoudnessEnabled = isLoudnessEnabled,
+                            isKeepScreenOn = isKeepScreenOn,
+                            isShowLyrics = isShowLyrics,
+                            isAutoplayOnStart = isAutoplayOnStart,
                             onSelectAccent = { newThemeId ->
                                 coroutineScope.launch {
                                     preferencesDataStore.saveAccentTheme(newThemeId)
@@ -102,6 +124,31 @@ class MainActivity : ComponentActivity() {
                             onSelectCrossfade = { newSeconds ->
                                 coroutineScope.launch {
                                     preferencesDataStore.saveCrossfadeSeconds(newSeconds)
+                                }
+                            },
+                            onSelectAppVolume = { newVolume ->
+                                coroutineScope.launch {
+                                    preferencesDataStore.saveAppVolumePercent(newVolume)
+                                }
+                            },
+                            onToggleLoudness = { enabled ->
+                                coroutineScope.launch {
+                                    preferencesDataStore.saveLoudnessBoost(enabled)
+                                }
+                            },
+                            onToggleKeepScreenOn = { enabled ->
+                                coroutineScope.launch {
+                                    preferencesDataStore.saveKeepScreenOn(enabled)
+                                }
+                            },
+                            onToggleShowLyrics = { enabled ->
+                                coroutineScope.launch {
+                                    preferencesDataStore.saveShowLyrics(enabled)
+                                }
+                            },
+                            onToggleAutoplayOnStart = { enabled ->
+                                coroutineScope.launch {
+                                    preferencesDataStore.saveAutoplayOnStart(enabled)
                                 }
                             },
                             onDismiss = { showSettingsDialog = false }
@@ -148,6 +195,7 @@ class MainActivity : ComponentActivity() {
 fun ClusterApp(
     homeViewModel: HomeViewModel,
     playerViewModel: PlayerViewModel,
+    showLyrics: Boolean,
     onOpenSettings: () -> Unit
 ) {
     var currentScreen by remember { mutableStateOf(Screen.Player) }
@@ -161,6 +209,7 @@ fun ClusterApp(
             Screen.Player -> {
                 PlayerScreen(
                     viewModel = playerViewModel,
+                    showLyrics = showLyrics,
                     onNavigateToHome = { currentScreen = Screen.Home },
                     onOpenSettings = onOpenSettings
                 )

@@ -121,19 +121,21 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    MetallicButton(
-                        onClick = onOpenSettings,
-                        icon = Icons.Rounded.Settings,
-                        minSize = 54.dp,
-                        contentDescription = stringResource(R.string.desc_settings)
-                    )
+
 
                     MetallicButton(
                         onClick = { viewModel.rescan() },
                         icon = Icons.Rounded.Refresh,
                         text = stringResource(R.string.btn_refresh),
-                        minSize = 54.dp,
+                        minSize = 72.dp,
                         contentDescription = stringResource(R.string.desc_refresh)
+                    )
+
+                    MetallicButton(
+                        onClick = onOpenSettings,
+                        icon = Icons.Rounded.Settings,
+                        minSize = 72.dp,
+                        contentDescription = stringResource(R.string.desc_settings)
                     )
                 }
             }

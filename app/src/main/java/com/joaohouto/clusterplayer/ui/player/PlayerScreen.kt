@@ -75,6 +75,7 @@ import com.joaohouto.clusterplayer.ui.theme.TextSecondary
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel,
+    showLyrics: Boolean = true,
     onNavigateToHome: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
@@ -132,13 +133,6 @@ fun PlayerScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Botão de Configurações
-                MetallicButton(
-                    onClick = onOpenSettings,
-                    icon = Icons.Rounded.Settings,
-                    minSize = 72.dp,
-                    contentDescription = stringResource(R.string.desc_settings)
-                )
 
                 // Botão para abrir listagem de músicas da pasta que está tocando atualmente (Fila de reprodução)
                 MetallicButton(
@@ -154,11 +148,19 @@ fun PlayerScreen(
                 MetallicButton(
                     onClick = onNavigateToHome,
                     icon = Icons.Rounded.Folder,
-                    text = stringResource(R.string.btn_back),
                     minSize = 72.dp,
                     textSize = 16.sp,
                     contentDescription = stringResource(R.string.desc_back)
                 )
+
+                // Botão de Configurações
+                MetallicButton(
+                    onClick = onOpenSettings,
+                    icon = Icons.Rounded.Settings,
+                    minSize = 72.dp,
+                    contentDescription = stringResource(R.string.desc_settings)
+                )
+
             }
         }
 
@@ -203,7 +205,7 @@ fun PlayerScreen(
                 ) {
                     val lyricsLine = state.currentLyricsLine
                     val accentColor = LocalClusterAccent.current.primary
-                    if (!lyricsLine.isNullOrBlank()) {
+                    if (showLyrics && !lyricsLine.isNullOrBlank()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()

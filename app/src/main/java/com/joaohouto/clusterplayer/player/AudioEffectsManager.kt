@@ -8,13 +8,14 @@ import android.util.Log
 class AudioEffectsManager {
     companion object {
         private const val TAG = "AudioEffectsManager"
-        // Target gain in millibels (mB). 800 mB = +0.8 dB (moderate boost that prevents digital clipping)
-        private const val DEFAULT_TARGET_GAIN_MB = 800
+        // Target gain in millibels (mB). 250 mB = +2.5 dB when enabled (safe boost)
+        private const val DEFAULT_LOUDNESS_GAIN_MB = 250
     }
 
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var equalizer: Equalizer? = null
     private var currentSessionId: Int = 0
+    private var isLoudnessEnabled: Boolean = false
 
     fun updateAudioSession(audioSessionId: Int) {
         if (audioSessionId <= 0 || audioSessionId == currentSessionId) return
@@ -22,25 +23,35 @@ class AudioEffectsManager {
 
         release()
 
-        // 1. Setup LoudnessEnhancer
+        // 1. Setup LoudnessEnhancer (Disabled by default to provide 0 dB clean unity gain)
         try {
             val enhancer = LoudnessEnhancer(audioSessionId)
-            enhancer.setTargetGain(DEFAULT_TARGET_GAIN_MB)
-            enhancer.enabled = true
+            enhancer.setTargetGain(DEFAULT_LOUDNESS_GAIN_MB)
+            enhancer.enabled = isLoudnessEnabled
             loudnessEnhancer = enhancer
-            Log.d(TAG, "LoudnessEnhancer attached to session $audioSessionId with gain ${DEFAULT_TARGET_GAIN_MB}mB")
+            Log.d(TAG, "LoudnessEnhancer attached to session $audioSessionId (enabled=$isLoudnessEnabled)")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to initialize LoudnessEnhancer on session $audioSessionId: ${e.message}")
         }
 
-        // 2. Setup Equalizer
+        // 2. Setup Equalizer (Disabled by default)
         try {
             val eq = Equalizer(0, audioSessionId)
-            eq.enabled = true
+            eq.enabled = false
             equalizer = eq
-            Log.d(TAG, "Equalizer attached to session $audioSessionId with ${eq.numberOfBands} bands")
+            Log.d(TAG, "Equalizer attached to session $audioSessionId with ${eq.numberOfBands} bands (disabled)")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to initialize Equalizer on session $audioSessionId: ${e.message}")
+        }
+    }
+
+    fun setLoudnessEnabled(enabled: Boolean) {
+        isLoudnessEnabled = enabled
+        try {
+            loudnessEnhancer?.enabled = enabled
+            Log.d(TAG, "LoudnessEnhancer enabled set to: $enabled")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to toggle LoudnessEnhancer: ${e.message}")
         }
     }
 

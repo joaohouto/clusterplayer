@@ -52,6 +52,22 @@
     <string name="settings_about_title">ABOUT</string>
     <string name="settings_about_app">Cluster Player</string>
     <string name="settings_about_desc">High-performance music player engineered for Android automotive head units.</string>
+    <string name="settings_visit_website">Official Website (GitHub)</string>
+    <string name="desc_visit_website">Open Cluster Player website in browser</string>
+
+    <string name="settings_audio_category">AUDIO &amp; PLAYBACK</string>
+    <string name="settings_display_category">DISPLAY &amp; INTERFACE</string>
+    <string name="settings_volume_title">Master App Volume</string>
+    <string name="settings_volume_subtitle">Attenuate volume to match vehicle head unit</string>
+    <string name="settings_volume_percent">%1$d%%</string>
+    <string name="settings_loudness_title">Loudness Equalizer Boost</string>
+    <string name="settings_loudness_subtitle">Boost low/high dynamics (+2.5 dB)</string>
+    <string name="settings_screen_on_title">Keep Screen On</string>
+    <string name="settings_screen_on_subtitle">Prevent screen from turning off while driving</string>
+    <string name="settings_lyrics_title">Show Synchronized Lyrics</string>
+    <string name="settings_lyrics_subtitle">Display .LRC lines above track title</string>
+    <string name="settings_autoplay_title">Autoplay on App Launch</string>
+    <string name="settings_autoplay_subtitle">Automatically resume playback when opening the app</string>
 
     <!-- Theme Names -->
     <string name="theme_needle_red">Needle Red</string>

@@ -54,10 +54,18 @@ class PlaybackService : MediaSessionService() {
     private var positionSavingJob: Job? = null
     private var retryCount = 0
 
-    private var crossfadeSeconds: Int = 3
+    private var crossfadeSeconds: Int = 0
     private var fadeInJob: Job? = null
     private var fadeTickerJob: Job? = null
     private var fadeOutActive: Boolean = false
+    private var masterVolume: Float = 1.0f
+    private var currentFadeScale: Float = 1.0f
+
+    private fun applyVolume() {
+        if (::player.isInitialized) {
+            player.volume = (currentFadeScale * masterVolume).coerceIn(0f, 1f)
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -79,6 +87,21 @@ class PlaybackService : MediaSessionService() {
             preferencesDataStore.crossfadeSecondsFlow.collect { seconds ->
                 crossfadeSeconds = seconds
                 Log.d(TAG, "Crossfade seconds updated: $crossfadeSeconds")
+            }
+        }
+
+        serviceScope.launch {
+            preferencesDataStore.appVolumePercentFlow.collect { percent ->
+                masterVolume = (percent.toFloat() / 100f).coerceIn(0.1f, 1.0f)
+                applyVolume()
+                Log.d(TAG, "Master volume updated: $masterVolume ($percent%)")
+            }
+        }
+
+        serviceScope.launch {
+            preferencesDataStore.loudnessBoostFlow.collect { enabled ->
+                audioEffectsManager.setLoudnessEnabled(enabled)
+                Log.d(TAG, "Loudness boost updated: $enabled")
             }
         }
 
@@ -242,20 +265,23 @@ class PlaybackService : MediaSessionService() {
         fadeInJob?.cancel()
         fadeOutActive = false
         if (durationMs <= 0L) {
-            player.volume = 1.0f
+            currentFadeScale = 1.0f
+            applyVolume()
             return
         }
         fadeInJob = serviceScope.launch {
-            player.volume = 0.0f
+            currentFadeScale = 0.0f
+            applyVolume()
             val stepInterval = 40L
             val steps = (durationMs / stepInterval).coerceAtLeast(1)
             for (i in 1..steps) {
                 delay(stepInterval)
                 val linearProgress = i.toFloat() / steps
-                val easedVolume = Math.sin(linearProgress * Math.PI / 2).toFloat().coerceIn(0f, 1f)
-                player.volume = easedVolume
+                currentFadeScale = Math.sin(linearProgress * Math.PI / 2).toFloat().coerceIn(0f, 1f)
+                applyVolume()
             }
-            player.volume = 1.0f
+            currentFadeScale = 1.0f
+            applyVolume()
         }
     }
 
@@ -263,8 +289,8 @@ class PlaybackService : MediaSessionService() {
         if (fadeInJob?.isActive == true) return
         fadeOutActive = true
         val progress = (remainingMs.toFloat() / fadeDurationMs.toFloat()).coerceIn(0f, 1f)
-        val easedVolume = Math.sin(progress * Math.PI / 2).toFloat().coerceIn(0f, 1f)
-        player.volume = easedVolume
+        currentFadeScale = Math.sin(progress * Math.PI / 2).toFloat().coerceIn(0f, 1f)
+        applyVolume()
     }
 
     private fun startFadeTicker() {
@@ -279,7 +305,8 @@ class PlaybackService : MediaSessionService() {
                         updateFadeOut(remainingMs, fadeDurationMs)
                     } else if (fadeOutActive && fadeInJob?.isActive != true) {
                         fadeOutActive = false
-                        player.volume = 1.0f
+                        currentFadeScale = 1.0f
+                        applyVolume()
                     }
                 }
             }
@@ -365,8 +392,12 @@ class PlaybackService : MediaSessionService() {
                     val seekPos = if (positionMs > 0L) positionMs else 0L
                     player.seekTo(targetIndex, seekPos)
                     player.prepare()
-                    player.play()
-                    Log.d(TAG, "Autoplay restored: folder=$folderPath, index=$targetIndex, pos=${seekPos}ms")
+                    if (snapshot.autoplayOnStart) {
+                        player.play()
+                        Log.d(TAG, "Autoplay restored and playing: folder=$folderPath, index=$targetIndex, pos=${seekPos}ms")
+                    } else {
+                        Log.d(TAG, "Autoplay restored (paused): folder=$folderPath, index=$targetIndex, pos=${seekPos}ms")
+                    }
                 }
             }
         } catch (e: Exception) {

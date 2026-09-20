@@ -4,7 +4,7 @@
     <string name="notification_channel_desc">Controles de reprodução do Cluster Player</string>
 
     <string name="header_cluster_player">CLUSTER PLAYER</string>
-    <string name="header_folders_playlists">PASTAS &amp; PLAYLISTS</string>
+    <string name="header_folders_playlists">Selecionar pasta</string>
     <string name="btn_playlists_folders">Playlists / Pastas</string>
     <string name="btn_back">Pastas</string>
     <string name="btn_folder_tracks">Fila de reprodução</string>
@@ -52,6 +52,22 @@
     <string name="settings_about_title">SOBRE</string>
     <string name="settings_about_app">Cluster Player</string>
     <string name="settings_about_desc">Reprodutor de alta performance projetado para multimídias automotivas Android.</string>
+    <string name="settings_visit_website">Site Oficial (GitHub)</string>
+    <string name="desc_visit_website">Abrir o site do Cluster Player no navegador</string>
+
+    <string name="settings_audio_category">ÁUDIO &amp; REPRODUÇÃO</string>
+    <string name="settings_display_category">TELA &amp; INTERFACE</string>
+    <string name="settings_volume_title">Volume Geral do App</string>
+    <string name="settings_volume_subtitle">Atenuar saída de áudio para casar com a multimídia</string>
+    <string name="settings_volume_percent">%1$d%%</string>
+    <string name="settings_loudness_title">Reforço Dinâmico (Loudness)</string>
+    <string name="settings_loudness_subtitle">Realce de graves e agudos (+2.5 dB)</string>
+    <string name="settings_screen_on_title">Manter Tela Ligada</string>
+    <string name="settings_screen_on_subtitle">Impede que a tela apague durante a condução</string>
+    <string name="settings_lyrics_title">Exibir Letras Sincronizadas</string>
+    <string name="settings_lyrics_subtitle">Mostrar linhas .LRC acima do título da música</string>
+    <string name="settings_autoplay_title">Tocar ao Iniciar o App</string>
+    <string name="settings_autoplay_subtitle">Retoma a reprodução automaticamente ao abrir o app</string>
 
     <!-- Theme Names -->
     <string name="theme_needle_red">Needle Red</string>

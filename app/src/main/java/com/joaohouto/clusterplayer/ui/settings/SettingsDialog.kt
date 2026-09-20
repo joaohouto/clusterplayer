@@ -1,5 +1,7 @@
 package com.joaohouto.clusterplayer.ui.settings
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,16 +23,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Timeline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -51,7 +53,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.joaohouto.clusterplayer.R
 import com.joaohouto.clusterplayer.ui.components.MetallicButton
-import com.joaohouto.clusterplayer.ui.components.MetallicButtonStyle
 import com.joaohouto.clusterplayer.ui.theme.ALL_ACCENT_THEMES
 import com.joaohouto.clusterplayer.ui.theme.ClusterAccent
 import com.joaohouto.clusterplayer.ui.theme.DeepMetallicBackground
@@ -63,17 +64,34 @@ import com.joaohouto.clusterplayer.ui.theme.TextPrimary
 import com.joaohouto.clusterplayer.ui.theme.TextSecondary
 import kotlin.math.roundToInt
 
+private const val GITHUB_PAGES_URL = "https://joaohouto.github.io/clusterplayer/"
+
 @Composable
 fun SettingsDialog(
     currentAccentTheme: ClusterAccent,
     currentCrossfadeSeconds: Int,
+    currentAppVolumePercent: Int,
+    isLoudnessEnabled: Boolean,
+    isKeepScreenOn: Boolean,
+    isShowLyrics: Boolean,
+    isAutoplayOnStart: Boolean,
     onSelectAccent: (String) -> Unit,
     onSelectCrossfade: (Int) -> Unit,
+    onSelectAppVolume: (Int) -> Unit,
+    onToggleLoudness: (Boolean) -> Unit,
+    onToggleKeepScreenOn: (Boolean) -> Unit,
+    onToggleShowLyrics: (Boolean) -> Unit,
+    onToggleAutoplayOnStart: (Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     val accent = LocalClusterAccent.current
+    val context = LocalContext.current
+
     var crossfadeSliderValue by remember(currentCrossfadeSeconds) {
         mutableFloatStateOf(currentCrossfadeSeconds.toFloat())
+    }
+    var volumeSliderValue by remember(currentAppVolumePercent) {
+        mutableFloatStateOf(currentAppVolumePercent.toFloat())
     }
 
     Dialog(
@@ -83,7 +101,7 @@ fun SettingsDialog(
         Surface(
             modifier = Modifier
                 .widthIn(min = 520.dp, max = 680.dp)
-                .padding(24.dp),
+                .padding(20.dp),
             shape = RoundedCornerShape(16.dp),
             color = DeepMetallicBackground,
             border = BorderStroke(1.5.dp, SurfaceCardBorder)
@@ -100,22 +118,13 @@ fun SettingsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Rounded.Settings,
-                            contentDescription = null,
-                            tint = accent.primary,
-                            modifier = Modifier.size(26.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = stringResource(R.string.settings_title),
-                            color = TextPrimary,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.5.sp
-                        )
-                    }
+                    Text(
+                        text = stringResource(R.string.settings_title),
+                        color = TextPrimary,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.5.sp
+                    )
 
                     MetallicButton(
                         onClick = onDismiss,
@@ -126,9 +135,9 @@ fun SettingsDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                // Section 1: Cluster Lighting Color (Cor de Iluminação)
+                // 1. Cluster Lighting Color (Cor de Iluminação)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -136,30 +145,19 @@ fun SettingsDialog(
                     border = BorderStroke(1.dp, SurfaceCardBorder)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.Palette,
-                                contentDescription = null,
-                                tint = accent.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text(
-                                    text = stringResource(R.string.settings_accent_title),
-                                    color = TextPrimary,
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = stringResource(R.string.settings_accent_subtitle),
-                                    color = TextSecondary,
-                                    fontSize = 13.sp
-                                )
-                            }
-                        }
+                        Text(
+                            text = stringResource(R.string.settings_accent_title),
+                            color = TextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_accent_subtitle),
+                            color = TextSecondary,
+                            fontSize = 12.sp
+                        )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         // Color Badges Row
                         Row(
@@ -178,7 +176,7 @@ fun SettingsDialog(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(48.dp)
+                                            .size(46.dp)
                                             .clip(CircleShape)
                                             .background(
                                                 Brush.radialGradient(
@@ -197,7 +195,7 @@ fun SettingsDialog(
                                                 imageVector = Icons.Rounded.Check,
                                                 contentDescription = null,
                                                 tint = Color.White,
-                                                modifier = Modifier.size(24.dp)
+                                                modifier = Modifier.size(22.dp)
                                             )
                                         }
                                     }
@@ -217,9 +215,9 @@ fun SettingsDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Section 2: Gradual Transition / Fade (Transição Gradual)
+                // 2. App Master Volume (Volume Geral do App)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -232,54 +230,125 @@ fun SettingsDialog(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Timeline,
-                                    contentDescription = null,
-                                    tint = accent.primary,
-                                    modifier = Modifier.size(20.dp)
+                            Column {
+                                Text(
+                                    text = stringResource(R.string.settings_volume_title),
+                                    color = TextPrimary,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        text = stringResource(R.string.settings_crossfade_title),
-                                        color = TextPrimary,
-                                        fontSize = 17.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.settings_crossfade_subtitle),
-                                        color = TextSecondary,
-                                        fontSize = 13.sp
-                                    )
-                                }
+                                Text(
+                                    text = stringResource(R.string.settings_volume_subtitle),
+                                    color = TextSecondary,
+                                    fontSize = 12.sp
+                                )
                             }
 
-                            // Current Value Pill
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = accent.primary.copy(alpha = 0.15f),
-                                border = BorderStroke(1.dp, accent.primary.copy(alpha = 0.5f))
-                            ) {
-                                val seconds = crossfadeSliderValue.roundToInt()
-                                val label = if (seconds == 0) {
-                                    stringResource(R.string.settings_crossfade_disabled)
-                                } else {
-                                    stringResource(R.string.settings_crossfade_seconds, seconds)
-                                }
-                                Text(
-                                    text = label,
-                                    color = accent.primary,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                )
-                            }
+                            val percent = volumeSliderValue.roundToInt()
+                            Text(
+                                text = stringResource(R.string.settings_volume_percent, percent),
+                                color = TextPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                        // Slider
+                        Slider(
+                            value = volumeSliderValue,
+                            onValueChange = { newValue ->
+                                volumeSliderValue = newValue
+                            },
+                            onValueChangeFinished = {
+                                onSelectAppVolume(volumeSliderValue.roundToInt())
+                            },
+                            valueRange = 10f..100f,
+                            steps = 17,
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color.White,
+                                activeTrackColor = accent.primary,
+                                inactiveTrackColor = MetallicIntermediate
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(100 to "100%", 80 to "80%", 60 to "60%", 40 to "40%", 20 to "20%").forEach { (pct, label) ->
+                                val isSelected = volumeSliderValue.roundToInt() == pct
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) accent.primary else MetallicIntermediate,
+                                    border = BorderStroke(1.dp, if (isSelected) accent.primary else SurfaceCardBorder),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            volumeSliderValue = pct.toFloat()
+                                            onSelectAppVolume(pct)
+                                        }
+                                ) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSelected) Color.White else TextSecondary,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(vertical = 8.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 3. Gradual Transition / Fade (Transição Gradual)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = SurfaceCard,
+                    border = BorderStroke(1.dp, SurfaceCardBorder)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = stringResource(R.string.settings_crossfade_title),
+                                    color = TextPrimary,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_crossfade_subtitle),
+                                    color = TextSecondary,
+                                    fontSize = 12.sp
+                                )
+                            }
+
+                            val seconds = crossfadeSliderValue.roundToInt()
+                            val label = if (seconds == 0) {
+                                stringResource(R.string.settings_crossfade_disabled)
+                            } else {
+                                stringResource(R.string.settings_crossfade_seconds, seconds)
+                            }
+                            Text(
+                                text = label,
+                                color = TextPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
                         Slider(
                             value = crossfadeSliderValue,
                             onValueChange = { newValue ->
@@ -298,7 +367,6 @@ fun SettingsDialog(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        // Quick Preset Chips
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -327,21 +395,12 @@ fun SettingsDialog(
                                 }
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Text(
-                            text = stringResource(R.string.settings_crossfade_hint),
-                            color = TextSecondary,
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
-                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Section 3: About App
+                // 4. Loudness Equalizer Boost (Reforço Dinâmico)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -349,29 +408,221 @@ fun SettingsDialog(
                     border = BorderStroke(1.dp, SurfaceCardBorder)
                 ) {
                     Row(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Info,
-                            contentDescription = null,
-                            tint = TextSecondary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "${stringResource(R.string.settings_about_app)} v1.1.0",
+                                text = stringResource(R.string.settings_loudness_title),
                                 color = TextPrimary,
-                                fontSize = 15.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = stringResource(R.string.settings_about_desc),
+                                text = stringResource(R.string.settings_loudness_subtitle),
                                 color = TextSecondary,
                                 fontSize = 12.sp
                             )
                         }
+
+                        Switch(
+                            checked = isLoudnessEnabled,
+                            onCheckedChange = onToggleLoudness,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = accent.primary,
+                                uncheckedThumbColor = TextSecondary,
+                                uncheckedTrackColor = MetallicIntermediate,
+                                uncheckedBorderColor = SurfaceCardBorder
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 5. Keep Screen On (Manter Tela Ligada)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = SurfaceCard,
+                    border = BorderStroke(1.dp, SurfaceCardBorder)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_screen_on_title),
+                                color = TextPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_screen_on_subtitle),
+                                color = TextSecondary,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Switch(
+                            checked = isKeepScreenOn,
+                            onCheckedChange = onToggleKeepScreenOn,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = accent.primary,
+                                uncheckedThumbColor = TextSecondary,
+                                uncheckedTrackColor = MetallicIntermediate,
+                                uncheckedBorderColor = SurfaceCardBorder
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 6. Show Synchronized Lyrics (Exibir Letras Sincronizadas)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = SurfaceCard,
+                    border = BorderStroke(1.dp, SurfaceCardBorder)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_lyrics_title),
+                                color = TextPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_lyrics_subtitle),
+                                color = TextSecondary,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Switch(
+                            checked = isShowLyrics,
+                            onCheckedChange = onToggleShowLyrics,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = accent.primary,
+                                uncheckedThumbColor = TextSecondary,
+                                uncheckedTrackColor = MetallicIntermediate,
+                                uncheckedBorderColor = SurfaceCardBorder
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 7. Autoplay on App Launch (Tocar ao Iniciar o App)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = SurfaceCard,
+                    border = BorderStroke(1.dp, SurfaceCardBorder)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_autoplay_title),
+                                color = TextPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_autoplay_subtitle),
+                                color = TextSecondary,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Switch(
+                            checked = isAutoplayOnStart,
+                            onCheckedChange = onToggleAutoplayOnStart,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = accent.primary,
+                                uncheckedThumbColor = TextSecondary,
+                                uncheckedTrackColor = MetallicIntermediate,
+                                uncheckedBorderColor = SurfaceCardBorder
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 8. Info Card & Website Link (Neutral Colors, Clickable Card)
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_PAGES_URL)).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                // Ignore if no browser available
+                            }
+                        },
+                    shape = RoundedCornerShape(12.dp),
+                    color = SurfaceCard,
+                    border = BorderStroke(1.dp, SurfaceCardBorder)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${stringResource(R.string.settings_about_app)} v1.1.1",
+                                color = TextPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "joaohouto.github.io/clusterplayer",
+                                color = TextSecondary,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                            contentDescription = stringResource(R.string.desc_visit_website),
+                            tint = TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             }
