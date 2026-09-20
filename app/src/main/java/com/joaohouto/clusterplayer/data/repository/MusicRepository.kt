@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import androidx.room.withTransaction
 import kotlinx.coroutines.withContext
 
 class MusicRepository private constructor(
@@ -77,28 +78,30 @@ class MusicRepository private constructor(
         database.trackDao().getTrackByPath(path)?.toDomain()
     }
 
-    fun triggerScan(onComplete: (() -> Unit)? = null) {
+    fun triggerScan(clearOld: Boolean = false, onComplete: (() -> Unit)? = null) {
         scanScope.launch {
             scanMutex.withLock {
                 _isScanning.value = true
                 try {
-                    Log.d(TAG, "Starting media scan...")
+                    Log.d(TAG, "Starting media scan (clearOld=$clearOld)...")
                     val result = scanner.scanStorage()
                     Log.d(TAG, "Found ${result.folders.size} folders and ${result.tracks.size} tracks")
 
-                    // Batch update Room database
-                    // First insert folders
-                    database.folderDao().insertFolders(result.folders)
+                    database.withTransaction {
+                        if (clearOld) {
+                            Log.d(TAG, "Clearing old records from database before inserting updated list")
+                            database.trackDao().clearAll()
+                            database.folderDao().clearAll()
+                        }
 
-                    // Insert tracks in chunks of 200 to prevent SQLite statement limits and UI jank
-                    result.tracks.chunked(200).forEach { chunk ->
-                        database.trackDao().insertTracks(chunk)
+                        // Insert folders
+                        database.folderDao().insertFolders(result.folders)
+
+                        // Insert tracks in chunks of 200 to prevent SQLite statement limits and UI jank
+                        result.tracks.chunked(200).forEach { chunk ->
+                            database.trackDao().insertTracks(chunk)
+                        }
                     }
-
-                    // Remove folders that no longer exist
-                    val currentFolderPaths = result.folders.map { it.path }.toSet()
-                    val existingEntities = database.folderDao().getAllFolders()
-                    // (Cleanups can be done or kept as cache)
 
                     Log.d(TAG, "Scan completed and synced to database")
                 } catch (e: Exception) {
@@ -108,6 +111,18 @@ class MusicRepository private constructor(
                     onComplete?.invoke()
                 }
             }
+        }
+    }
+
+    suspend fun deleteFolderAndTracks(folderPath: String) = withContext(Dispatchers.IO) {
+        try {
+            database.withTransaction {
+                database.trackDao().deleteTracksByFolder(folderPath)
+                database.folderDao().deleteFolder(folderPath)
+            }
+            Log.d(TAG, "Deleted missing folder and tracks for: $folderPath")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting missing folder and tracks", e)
         }
     }
 }

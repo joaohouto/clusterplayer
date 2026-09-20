@@ -36,4 +36,5 @@
     <string name="desc_no_art">No Album Art</string>
     <string name="desc_refresh">Refresh folders</string>
     <string name="desc_back_to_folders">Back to Folders</string>
+    <string name="error_cannot_play">Could not play track</string>
 </resources>

@@ -21,7 +21,7 @@ class UsbMountReceiver : BroadcastReceiver() {
             Intent.ACTION_MEDIA_MOUNTED -> {
                 Log.i(TAG, "External storage mounted. Starting media rescan...")
                 val repository = MusicRepository.getInstance(context)
-                repository.triggerScan {
+                repository.triggerScan(clearOld = true) {
                     Log.i(TAG, "Rescan completed after media mount.")
                 }
             }
@@ -29,7 +29,7 @@ class UsbMountReceiver : BroadcastReceiver() {
             Intent.ACTION_MEDIA_EJECT -> {
                 Log.w(TAG, "External media unmounted or ejected.")
                 val repository = MusicRepository.getInstance(context)
-                repository.triggerScan()
+                repository.triggerScan(clearOld = true)
             }
         }
     }

@@ -5,14 +5,18 @@ import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
+import com.joaohouto.clusterplayer.R
 import com.joaohouto.clusterplayer.data.model.Track
+import java.io.File
 import com.joaohouto.clusterplayer.data.repository.MusicRepository
 import com.joaohouto.clusterplayer.lyrics.LrcLine
 import com.joaohouto.clusterplayer.lyrics.LrcParser
@@ -89,6 +93,21 @@ class PlayerController private constructor(private val context: Context) {
         }, MoreExecutors.directExecutor())
     }
 
+    private var lastToastTime = 0L
+
+    fun showCannotPlayToast() {
+        val now = System.currentTimeMillis()
+        if (now - lastToastTime < 1500L) return
+        lastToastTime = now
+        controllerScope.launch(Dispatchers.Main) {
+            Toast.makeText(
+                context,
+                context.getString(R.string.error_cannot_play),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
     private fun setupController(controller: MediaController) {
         controller.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -102,6 +121,11 @@ class PlayerController private constructor(private val context: Context) {
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 updateStateFromController()
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e(TAG, "Player error encountered in PlayerController: ${error.errorCodeName} (${error.errorCode})", error)
+                showCannotPlayToast()
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -272,10 +296,19 @@ class PlayerController private constructor(private val context: Context) {
     fun playTrackAtIndex(index: Int) {
         val controller = mediaController ?: return
         if (index in 0 until controller.mediaItemCount) {
+            val item = controller.getMediaItemAt(index)
+            val filePath = item.mediaMetadata.extras?.getString("filePath") ?: ""
+            if (filePath.isNotEmpty() && !File(filePath).exists()) {
+                Log.w(TAG, "File no longer exists for track at index $index: $filePath")
+                showCannotPlayToast()
+                return
+            }
             controller.seekToDefaultPosition(index)
             if (!controller.isPlaying) {
                 controller.play()
             }
+        } else {
+            showCannotPlayToast()
         }
     }
 
@@ -288,16 +321,65 @@ class PlayerController private constructor(private val context: Context) {
 
     fun playFolder(folderPath: String, startIndex: Int = 0) {
         controllerScope.launch {
-            val tracks = repository.getTracksForFolderSync(folderPath)
-            if (tracks.isNotEmpty()) {
-                playTracks(tracks, startIndex)
+            val folderFile = File(folderPath)
+            if (folderPath.isNotEmpty() && !folderPath.startsWith("content://") && !folderFile.exists()) {
+                Log.w(TAG, "Folder does not exist on disk: $folderPath")
+                repository.deleteFolderAndTracks(folderPath)
+                showCannotPlayToast()
+                return@launch
             }
+
+            val tracks = repository.getTracksForFolderSync(folderPath)
+            if (tracks.isEmpty()) {
+                showCannotPlayToast()
+                return@launch
+            }
+
+            val validTracks = tracks.filter { track ->
+                track.path.isEmpty() || File(track.path).exists()
+            }
+
+            if (validTracks.isEmpty()) {
+                Log.w(TAG, "All tracks in folder no longer exist on disk: $folderPath")
+                repository.deleteFolderAndTracks(folderPath)
+                showCannotPlayToast()
+                return@launch
+            }
+
+            val targetTrack = tracks.getOrNull(startIndex)
+            val adjustedIndex = if (targetTrack != null && validTracks.contains(targetTrack)) {
+                validTracks.indexOf(targetTrack)
+            } else {
+                0
+            }
+
+            playTracks(validTracks, adjustedIndex)
         }
     }
 
     fun playTracks(tracks: List<Track>, startIndex: Int = 0) {
         val controller = mediaController ?: return
-        val mediaItems = tracks.map { track ->
+        if (tracks.isEmpty()) {
+            showCannotPlayToast()
+            return
+        }
+
+        val validTracks = tracks.filter { track ->
+            track.path.isEmpty() || File(track.path).exists()
+        }
+        if (validTracks.isEmpty()) {
+            showCannotPlayToast()
+            return
+        }
+
+        val targetTrack = tracks.getOrNull(startIndex)
+        val adjustedIndex = if (targetTrack != null && validTracks.contains(targetTrack)) {
+            validTracks.indexOf(targetTrack)
+        } else {
+            0
+        }
+
+        val mediaItems = validTracks.map { track ->
             val extras = Bundle().apply {
                 putString("folderPath", track.folderPath)
                 putString("filePath", track.path)
@@ -319,7 +401,7 @@ class PlayerController private constructor(private val context: Context) {
                 .build()
         }
 
-        controller.setMediaItems(mediaItems, startIndex.coerceIn(0, mediaItems.size - 1), 0L)
+        controller.setMediaItems(mediaItems, adjustedIndex.coerceIn(0, mediaItems.size - 1), 0L)
         controller.prepare()
         controller.play()
     }

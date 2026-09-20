@@ -56,7 +56,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         playerController.cycleRepeatMode()
     }
 
-    fun rescan() {
-        repository.triggerScan()
+    fun rescan(clearOld: Boolean = true) {
+        repository.triggerScan(clearOld = clearOld)
     }
 }

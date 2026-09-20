@@ -1,466 +1,421 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cluster Player - Player de Música Automotivo</title>
-    <meta name="description" content="Player de música local para centrais multimídia automotivas Android. Suporte a pendrives USB, pastas físicas como playlists e interface inspirada em painéis esportivos.">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" href="icon.png">
-    <link rel="apple-touch-icon" href="icon.png">
+    <meta
+      name="description"
+      content="Player de música local para centrais multimídia automotivas Android. Suporte a pendrives USB, pastas físicas como playlists e interface inspirada em painéis esportivos."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/svg+xml" href="icon.svg" />
+    <link rel="apple-touch-icon" href="icon.svg" />
     <style>
-        :root {
-            --bg-deep: #0b0c0e;
-            --bg-secondary: #121316;
-            --surface-card: #181a1e;
-            --surface-border: #262930;
-            --metallic-intermediate: #2e323a;
-            --metallic-border: #3a3f47;
-            --needle-red: #e61924;
-            --needle-red-glow: rgba(230, 25, 36, 0.4);
-            --needle-red-dark: #b0121b;
-            --text-primary: #ffffff;
-            --text-secondary: #9a9da6;
-        }
+      :root {
+        --bg-deep: #0b0c0e;
+        --bg-secondary: #121316;
+        --surface-card: #17181b;
+        --surface-border: #262930;
+        --metallic-intermediate: #2e323a;
+        --metallic-border: #3a3f47;
+        --needle-red: #e61924;
+        --needle-red-glow: rgba(230, 25, 36, 0.35);
+        --needle-red-dark: #b0121b;
+        --text-primary: #f2f2f0;
+        --text-secondary: #94979f;
+      }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-        body {
-            background-color: var(--bg-deep);
-            color: var(--text-primary);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            line-height: 1.6;
-            overflow-x: hidden;
-            background-image: 
-                radial-gradient(circle at 50% 0%, rgba(230, 25, 36, 0.08) 0%, transparent 60%),
-                linear-gradient(to bottom, #111317 0%, var(--bg-deep) 100%);
-            min-height: 100vh;
-        }
+      body {
+        background-color: var(--bg-deep);
+        color: var(--text-primary);
+        font-family:
+          "Inter",
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        line-height: 1.6;
+        overflow-x: hidden;
+        background-image:
+          radial-gradient(
+            circle at 20% -10%,
+            rgba(230, 25, 36, 0.06) 0%,
+            transparent 55%
+          ),
+          linear-gradient(to bottom, #101216 0%, var(--bg-deep) 100%);
+        min-height: 100vh;
+      }
 
-        header {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+      header {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 26px 24px 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
 
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            text-decoration: none;
-            color: var(--text-primary);
-        }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        color: var(--text-primary);
+      }
 
-        .brand-logo {
-            width: 44px;
-            height: 44px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, #2c2f36, #121316);
-            border: 1px solid var(--surface-border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-        }
+      .brand-logo img {
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        display: block;
+      }
 
-        .brand-name {
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 1.5rem;
-            font-weight: 700;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-        }
+      .brand-name {
+        font-size: 1.3rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
 
-        .brand-name span {
-            color: var(--needle-red);
-        }
+      .brand-name span {
+        color: var(--needle-red);
+      }
 
-        .nav-link {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.95rem;
-            font-weight: 500;
-            transition: color 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+      .nav-link {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
 
-        .nav-link:hover {
-            color: var(--text-primary);
-        }
+      .nav-link:hover {
+        color: var(--text-primary);
+      }
 
-        .hero {
-            max-width: 1100px;
-            margin: 40px auto 70px auto;
-            padding: 0 24px;
-            text-align: center;
-        }
+      .hero {
+        max-width: 780px;
+        margin: 60px auto 90px;
+        padding: 0 24px;
+      }
 
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 14px;
-            border-radius: 30px;
-            background: rgba(230, 25, 36, 0.12);
-            border: 1px solid rgba(230, 25, 36, 0.3);
-            color: #ff525d;
-            font-size: 0.85rem;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            margin-bottom: 24px;
-        }
+      h1 {
+        font-size: clamp(2.2rem, 5vw, 3.3rem);
+        font-weight: 700;
+        line-height: 1.15;
+        margin-bottom: 22px;
+        max-width: 14ch;
+      }
 
-        .badge-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: var(--needle-red);
-            box-shadow: 0 0 8px var(--needle-red);
-        }
+      .hero-sub {
+        max-width: 58ch;
+        color: var(--text-secondary);
+        font-size: 1.08rem;
+        margin-bottom: 34px;
+      }
 
-        h1 {
-            font-family: 'Rajdhani', sans-serif;
-            font-size: clamp(2.5rem, 6vw, 4.2rem);
-            font-weight: 700;
-            letter-spacing: 1px;
-            line-height: 1.1;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-        }
+      .hero-sub + .hero-sub {
+        margin-top: -18px;
+      }
 
-        .gradient-text {
-            background: linear-gradient(135deg, #ffffff 40%, #9a9da6 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+      .cta-container {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 14px;
+      }
 
-        .hero-sub {
-            max-width: 680px;
-            margin: 0 auto 36px auto;
-            color: var(--text-secondary);
-            font-size: clamp(1rem, 2vw, 1.2rem);
-            font-weight: 400;
-        }
+      .btn-download {
+        background: var(--needle-red);
+        color: #ffffff;
+        text-decoration: none;
+        padding: 14px 26px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid #ff4d58;
+        transition: background 0.15s;
+      }
 
-        .cta-container {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 20px;
-        }
+      .btn-download:hover {
+        background: #cf1620;
+      }
 
-        .btn-download {
-            background: linear-gradient(135deg, var(--needle-red), var(--needle-red-dark));
-            color: #ffffff;
-            text-decoration: none;
-            padding: 16px 36px;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 1.05rem;
-            letter-spacing: 0.5px;
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            border: 1px solid #ff4d58;
-            box-shadow: 0 8px 24px var(--needle-red-glow);
-            transition: transform 0.2s, box-shadow 0.2s;
-            cursor: pointer;
-        }
+      .btn-secondary {
+        color: var(--text-secondary);
+        text-decoration: none;
+        padding: 14px 6px;
+        font-weight: 500;
+        font-size: 0.95rem;
+        border-bottom: 1px solid transparent;
+      }
 
-        .btn-download:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 30px rgba(230, 25, 36, 0.6);
-        }
+      .btn-secondary:hover {
+        color: var(--text-primary);
+        border-bottom-color: var(--surface-border);
+      }
 
-        .btn-secondary {
-            background: var(--surface-card);
-            color: var(--text-primary);
-            text-decoration: none;
-            padding: 16px 28px;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 1rem;
-            border: 1px solid var(--surface-border);
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            transition: background 0.2s, border-color 0.2s;
-        }
+      .release-notice {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+      }
 
-        .btn-secondary:hover {
-            background: var(--metallic-intermediate);
-            border-color: var(--metallic-border);
-        }
+      .icon-inline {
+        display: inline-flex;
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        overflow: hidden;
+        vertical-align: -7px;
+        margin-right: 10px;
+        border: 1px solid var(--surface-border);
+      }
 
-        .release-notice {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-top: 10px;
-        }
+      .icon-inline img {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
 
-        /* App Icon Display */
-        .icon-showcase {
-            margin: 40px auto;
-            width: 140px;
-            height: 140px;
-            border-radius: 32px;
-            background: linear-gradient(145deg, #2c2f36 0%, #1a1c20 50%, #0b0c0e 100%);
-            border: 1px solid var(--surface-border);
-            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
+      .features {
+        max-width: 780px;
+        margin: 0 auto 70px;
+        padding: 0 24px;
+      }
 
-        .icon-showcase::after {
-            content: '';
-            position: absolute;
-            inset: -4px;
-            border-radius: 36px;
-            background: radial-gradient(circle, var(--needle-red-glow), transparent 70%);
-            z-index: -1;
-        }
+      .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
 
-        /* Feature Grid */
-        .features {
-            max-width: 1200px;
-            margin: 60px auto;
-            padding: 0 24px;
-        }
+      .section-intro {
+        color: var(--text-secondary);
+        font-size: 0.98rem;
+        margin-bottom: 36px;
+        max-width: 56ch;
+      }
 
-        .section-title {
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 2rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            text-align: center;
-            margin-bottom: 40px;
-        }
+      .feature-list {
+        display: flex;
+        flex-direction: column;
+      }
 
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 24px;
-        }
+      .feature-item {
+        padding: 22px 0;
+        border-top: 1px solid var(--surface-border);
+        display: grid;
+        grid-template-columns: 210px 1fr;
+        gap: 24px;
+      }
 
-        .card {
-            background: var(--surface-card);
-            border: 1px solid var(--surface-border);
-            border-radius: 16px;
-            padding: 30px;
-            transition: transform 0.2s, border-color 0.2s;
-            position: relative;
-            overflow: hidden;
-        }
+      .feature-item:last-child {
+        border-bottom: 1px solid var(--surface-border);
+      }
 
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background: transparent;
-            transition: background 0.2s;
-        }
+      .feature-item h3 {
+        font-size: 1.02rem;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
 
-        .card:hover {
-            transform: translateY(-4px);
-            border-color: var(--metallic-border);
-        }
+      .feature-item p {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        margin: 0;
+      }
 
-        .card:hover::before {
-            background: var(--needle-red);
+      @media (max-width: 620px) {
+        .feature-item {
+          grid-template-columns: 1fr;
+          gap: 6px;
         }
+      }
 
-        .card-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            background: var(--metallic-intermediate);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-            color: var(--needle-red);
-        }
+      footer {
+        max-width: 780px;
+        margin: 0 auto 40px;
+        padding: 24px;
+        border-top: 1px solid var(--surface-border);
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+      }
 
-        .card h3 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            margin-bottom: 12px;
-            color: var(--text-primary);
-        }
+      footer a {
+        color: var(--text-primary);
+        text-decoration: none;
+      }
 
-        .card p {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            line-height: 1.6;
-        }
-
-        footer {
-            max-width: 1200px;
-            margin: 80px auto 30px auto;
-            padding: 24px;
-            border-top: 1px solid var(--surface-border);
-            text-align: center;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-
-        footer a {
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-
-        footer a:hover {
-            color: var(--needle-red);
-        }
+      footer a:hover {
+        color: var(--needle-red);
+      }
     </style>
-</head>
-<body>
-
+  </head>
+  <body>
     <header>
-        <a href="#" class="brand">
-            <div class="brand-logo">
-                <img src="icon.png" alt="Cluster Player Logo" width="44" height="44" style="border-radius: 10px; display: block;">
-            </div>
-            <div class="brand-name">Cluster<span>Player</span></div>
-        </a>
+      <a href="#" class="brand">
+        <div class="brand-logo">
+          <img src="icon.svg" alt="Cluster Player" />
+        </div>
+        <div class="brand-name">Cluster<span>Player</span></div>
+      </a>
 
-        <a href="https://github.com/joaohouto/clusterplayer" target="_blank" rel="noopener noreferrer" class="nav-link">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-            </svg>
-            GitHub
-        </a>
+      <a
+        href="https://github.com/joaohouto/clusterplayer"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="nav-link"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+          />
+        </svg>
+        GitHub
+      </a>
     </header>
 
     <main>
-        <section class="hero">
-            <div class="badge">
-                <span class="badge-dot"></span>
-                Automotive Android Media Player
-            </div>
+      <section class="hero">
+        <h1>Player de música para multimídias Android</h1>
 
-            <div class="icon-showcase">
-                <img src="icon.png" alt="Cluster Player Ícone Oficial" width="140" height="140" style="border-radius: 32px; display: block;">
-            </div>
+        <p class="hero-sub">
+          Use a organização de pastas do seu pendrive ou do armazenamento
+          interno como playlists, sem depender de tags ID3 ou de metadados de
+          álbum e artista.
+        </p>
 
-            <h1><span class="gradient-text">Música Sem Distrações</span><br>no Painel do seu Carro</h1>
+        <div class="cta-container">
+          <a
+            href="https://github.com/joaohouto/clusterplayer/releases/latest/download/ClusterPlayer-v1.0.1.apk"
+            class="btn-download"
+            id="download-btn"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Baixar APK v1.0.0
+          </a>
 
-            <p class="hero-sub">
-                Construído sob medida para centrais multimídia automotivas Android. Suas pastas físicas no pendrive USB ou armazenamento interno atuam diretamente como playlists, com foco total em ergonomia e segurança.
+          <a
+            href="https://github.com/joaohouto/clusterplayer/releases"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-secondary"
+          >
+            Ver outras versões
+          </a>
+        </div>
+
+        <p class="release-notice">
+          Roda a partir do Android 7.0 (API 24) até o Android 15.
+        </p>
+      </section>
+
+      <section class="features">
+        <h2 class="section-title">Recursos</h2>
+
+        <div class="feature-list">
+          <div class="feature-item">
+            <h3>Pastas como playlists</h3>
+            <p>
+              A estrutura de diretórios do pendrive é lida como está, sem
+              depender de metadados de artista ou álbum.
             </p>
+          </div>
 
-            <div class="cta-container">
-                <a href="https://github.com/joaohouto/clusterplayer/releases/latest/download/ClusterPlayer-v1.0.0.apk" class="btn-download" id="download-btn">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    Baixar APK (v1.0.0 Oficial)
-                </a>
+          <div class="feature-item">
+            <h3>Retomada automática</h3>
+            <p>
+              Ao ligar o carro, a reprodução volta de onde parou, sem
+              necessidade de interação do usuário.
+            </p>
+          </div>
 
-                <a href="https://github.com/joaohouto/clusterplayer/releases" target="_blank" rel="noopener noreferrer" class="btn-secondary">
-                    Ver Todas as Releases
-                </a>
-            </div>
+          <div class="feature-item">
+            <h3>Botões grandes, contraste alto</h3>
+            <p>
+              Área de toque mínima de 60x60 dp e cores pensadas para leitura sob
+              luz solar direta. Também é possível trocar de faixa com gesto de
+              deslizar.
+            </p>
+          </div>
 
-            <p class="release-notice">Compatível com Android 7.0+ (API 24 ao Android 15 / 35)</p>
-        </section>
+          <div class="feature-item">
+            <h3>Resistente a quedas de energia</h3>
+            <p>
+              O estado é salvo periodicamente para lidar com desligamentos
+              abruptos da ignição, com nova tentativa automática em caso de
+              queda de tensão na partida.
+            </p>
+          </div>
 
-        <section class="features">
-            <h2 class="section-title">Projetado para o Trânsito</h2>
+          <div class="feature-item">
+            <h3>Integração com o carro</h3>
+            <p>
+              Responde aos comandos do volante e ao sistema de foco de áudio do
+              Android, mantendo o funcionamento normal do GPS e das chamadas por
+              viva-voz.
+            </p>
+          </div>
 
-            <div class="grid">
-                <div class="card">
-                    <div class="card-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                        </svg>
-                    </div>
-                    <h3>Pastas Físicas = Playlists</h3>
-                    <p>Sem tags ID3 corrompidas ou confusão de artistas desconhecidos. A organização de diretórios que você criou no seu pendrive é respeitada integralmente.</p>
-                </div>
-
-                <div class="card">
-                    <div class="card-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="5 3 19 12 5 21 5 3"/>
-                        </svg>
-                    </div>
-                    <h3>Autoplay e Retomada Perfeita</h3>
-                    <p>Ao dar a partida no motor, o app retoma a reprodução exatamente no milissegundo em que parou, sem exigir interação do condutor.</p>
-                </div>
-
-                <div class="card">
-                    <div class="card-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="m4.93 4.93 4.24 4.24"/>
-                            <path d="m14.83 9.17 4.24-4.24"/>
-                            <path d="m14.83 14.83 4.24 4.24"/>
-                            <path d="m9.17 14.83-4.24 4.24"/>
-                        </svg>
-                    </div>
-                    <h3>Ergonomia para Direção</h3>
-                    <p>Hitbox mínima de 60x60 dp em todos os botões, contrastes elevados para visibilidade sob luz solar e suporte a gestos de deslizar para trocar de faixa.</p>
-                </div>
-
-                <div class="card">
-                    <div class="card-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 2v20"/>
-                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                        </svg>
-                    </div>
-                    <h3>Tolerância a Falhas Elétricas</h3>
-                    <p>Salvamento periódico contínuo contra desligamentos abruptos da ignição e retentativa automática contra quedas de tensão na partida do motor.</p>
-                </div>
-
-                <div class="card">
-                    <div class="card-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
-                            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
-                        </svg>
-                    </div>
-                    <h3>Comandos de Volante & Focus</h3>
-                    <p>Totalmente integrado às teclas de volante do veículo e ao controle de foco de áudio do Android (GPS/Waze e chamadas viva-voz).</p>
-                </div>
-
-                <div class="card">
-                    <div class="card-icon">
-                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                        </svg>
-                    </div>
-                    <h3>Estética Automotive Cluster</h3>
-                    <p>Design metálico acetinado escuro inspirado em instrumentos de painéis de luxo, com marcadores em vermelho esportivo Needle Red.</p>
-                </div>
-            </div>
-        </section>
+          <div class="feature-item">
+            <h3>Visual de painel</h3>
+            <p>
+              Acabamento metálico escuro e vermelho de referência esportiva, no
+              estilo dos mostradores de painéis automotivos.
+            </p>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer>
-        <p>Cluster Player &copy; 2026 &bull; Desenvolvido por <a href="https://github.com/joaohouto" target="_blank" rel="noopener noreferrer">João Houto</a> &bull; Código aberto no <a href="https://github.com/joaohouto/clusterplayer" target="_blank" rel="noopener noreferrer">GitHub</a></p>
+      <p>
+        Cluster Player &bull; desenvolvido por
+        <a
+          href="https://github.com/joaohouto"
+          target="_blank"
+          rel="noopener noreferrer"
+          >João Couto</a
+        >
+        &bull; código aberto no
+        <a
+          href="https://github.com/joaohouto/clusterplayer"
+          target="_blank"
+          rel="noopener noreferrer"
+          >GitHub</a
+        >
+      </p>
     </footer>
-
-</body>
+  </body>
 </html>

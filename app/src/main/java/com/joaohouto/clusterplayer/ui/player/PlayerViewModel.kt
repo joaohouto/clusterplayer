@@ -7,6 +7,7 @@ import com.joaohouto.clusterplayer.data.model.Track
 import com.joaohouto.clusterplayer.data.repository.MusicRepository
 import com.joaohouto.clusterplayer.player.PlaybackUiState
 import com.joaohouto.clusterplayer.player.PlayerController
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
@@ -54,6 +55,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun playTrackInCurrentFolder(trackIndex: Int) {
+        val tracks = currentFolderTracks.value
+        val track = tracks.getOrNull(trackIndex)
+        if (track != null && track.path.isNotEmpty() && !File(track.path).exists()) {
+            playerController.showCannotPlayToast()
+            return
+        }
         val folderPath = playbackState.value.currentTrack?.folderPath
         if (!folderPath.isNullOrEmpty() && playerController.hasMediaItemsForFolder(folderPath)) {
             // Fast path: seek directly within current ExoPlayer playlist (0ms latency, no DB query or MediaItem recreation)

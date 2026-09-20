@@ -175,6 +175,18 @@ class PlaybackService : MediaSessionService() {
 
             override fun onPlayerError(error: PlaybackException) {
                 Log.e(TAG, "Player error encountered: ${error.errorCodeName} (${error.errorCode})", error)
+                if (error.errorCode == PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ||
+                    error.errorCode == PlaybackException.ERROR_CODE_IO_NO_PERMISSION ||
+                    error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED) {
+                    serviceScope.launch(Dispatchers.Main) {
+                        android.widget.Toast.makeText(
+                            this@PlaybackService,
+                            getString(com.joaohouto.clusterplayer.R.string.error_cannot_play),
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    return
+                }
                 handlePlayerErrorWithRetry(error)
             }
         })
@@ -260,8 +272,9 @@ class PlaybackService : MediaSessionService() {
                     tracks = scanResult.tracks.filter { it.folderPath == folderPath }.map { it.toDomain() }
                 }
 
-                if (tracks.isNotEmpty()) {
-                    val mediaItems = tracks.map { trackToMediaItem(it) }
+                val validTracks = tracks.filter { it.path.isEmpty() || File(it.path).exists() }
+                if (validTracks.isNotEmpty()) {
+                    val mediaItems = validTracks.map { trackToMediaItem(it) }
                     player.setMediaItems(mediaItems)
 
                     val targetIndex = if (!trackUri.isNullOrEmpty()) {
