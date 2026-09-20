@@ -10,4 +10,5 @@ app/build/
 .externalNativeBuild
 .cxx
 local.properties
-
+.kotlin/
+*.apk
