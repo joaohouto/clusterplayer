@@ -33,7 +33,7 @@ class PlaybackService : MediaSessionService() {
 
     companion object {
         private const val TAG = "PlaybackService"
-        private const val POSITION_SAVE_INTERVAL_MS = 3000L
+        private const val POSITION_SAVE_INTERVAL_MS = 10000L
         private const val MAX_LOAD_RETRIES = 3
         private const val NOTIFICATION_CHANNEL_ID = "cluster_player_channel"
         private const val NOTIFICATION_ID = 1001
@@ -87,6 +87,11 @@ class PlaybackService : MediaSessionService() {
             preferencesDataStore.crossfadeSecondsFlow.collect { seconds ->
                 crossfadeSeconds = seconds
                 Log.d(TAG, "Crossfade seconds updated: $crossfadeSeconds")
+                if (crossfadeSeconds > 0 && ::player.isInitialized && player.isPlaying) {
+                    startFadeTicker()
+                } else if (crossfadeSeconds <= 0) {
+                    stopFadeTicker()
+                }
             }
         }
 
@@ -295,6 +300,7 @@ class PlaybackService : MediaSessionService() {
 
     private fun startFadeTicker() {
         fadeTickerJob?.cancel()
+        if (crossfadeSeconds <= 0) return
         fadeTickerJob = serviceScope.launch {
             while (isActive) {
                 delay(150L)

@@ -198,7 +198,11 @@ fun ClusterApp(
     showLyrics: Boolean,
     onOpenSettings: () -> Unit
 ) {
-    var currentScreen by remember { mutableStateOf(Screen.Player) }
+    val playbackState by playerViewModel.playbackState.collectAsState()
+    var userNavigatedScreen by remember { mutableStateOf<Screen?>(null) }
+
+    // If user has not explicitly navigated, show Player if music is ready/playing; otherwise show Folders (Home)
+    val currentScreen = userNavigatedScreen ?: if (playbackState.currentTrack != null) Screen.Player else Screen.Home
 
     AnimatedContent(
         targetState = currentScreen,
@@ -210,14 +214,14 @@ fun ClusterApp(
                 PlayerScreen(
                     viewModel = playerViewModel,
                     showLyrics = showLyrics,
-                    onNavigateToHome = { currentScreen = Screen.Home },
+                    onNavigateToHome = { userNavigatedScreen = Screen.Home },
                     onOpenSettings = onOpenSettings
                 )
             }
             Screen.Home -> {
                 HomeScreen(
                     viewModel = homeViewModel,
-                    onNavigateToPlayer = { currentScreen = Screen.Player },
+                    onNavigateToPlayer = { userNavigatedScreen = Screen.Player },
                     onOpenSettings = onOpenSettings
                 )
             }

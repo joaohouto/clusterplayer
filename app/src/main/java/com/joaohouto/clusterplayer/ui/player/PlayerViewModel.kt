@@ -26,6 +26,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val repository = MusicRepository.getInstance(application)
 
     val playbackState: StateFlow<PlaybackUiState> = playerController.uiState
+    val currentPosition: StateFlow<Long> = playerController.currentPosition
 
     // Automatically and reactively pre-loads the tracks of the currently playing folder on Dispatchers.IO
     // so that opening the queue dialog is completely instant and has 0 wait time.

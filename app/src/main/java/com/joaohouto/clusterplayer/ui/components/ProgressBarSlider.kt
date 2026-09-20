@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.sp
 import com.joaohouto.clusterplayer.ui.theme.LocalClusterAccent
 import com.joaohouto.clusterplayer.ui.theme.TextSecondary
 import com.joaohouto.clusterplayer.ui.theme.TrackRail
-import java.util.Locale
 
 @Composable
 fun ProgressBarSlider(
@@ -162,5 +161,7 @@ private fun formatTime(ms: Long): String {
     val totalSeconds = (ms / 1000).coerceAtLeast(0)
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
-    return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
+    val minStr = if (minutes < 10) "0$minutes" else minutes.toString()
+    val secStr = if (seconds < 10) "0$seconds" else seconds.toString()
+    return "$minStr:$secStr"
 }

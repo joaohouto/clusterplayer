@@ -32,6 +32,8 @@ import com.joaohouto.clusterplayer.ui.theme.MetallicIntermediate
 import com.joaohouto.clusterplayer.ui.theme.SurfaceCard
 import com.joaohouto.clusterplayer.ui.theme.TextSecondary
 
+private val ArtShape = RoundedCornerShape(8.dp)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SquareAlbumArt(
@@ -50,12 +52,10 @@ fun SquareAlbumArt(
         }
     }
 
-    val shape = RoundedCornerShape(8.dp)
-
     Box(
         modifier = modifier
             .aspectRatio(1f)
-            .clip(shape)
+            .clip(ArtShape)
             .background(SurfaceCard)
             .then(
                 if (onDoubleTap != null) {
@@ -73,7 +73,8 @@ fun SquareAlbumArt(
             AsyncImage(
                 model = ImageRequest.Builder(context)
                     .data(artBytes)
-                    .size(512, 512)
+                    .size(256, 256)
+                    .bitmapConfig(android.graphics.Bitmap.Config.RGB_565)
                     .scale(Scale.FILL)
                     .crossfade(true)
                     .build(),

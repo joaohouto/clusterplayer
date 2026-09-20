@@ -7,9 +7,19 @@ import com.joaohouto.clusterplayer.data.model.Folder
 import com.joaohouto.clusterplayer.data.repository.MusicRepository
 import com.joaohouto.clusterplayer.player.PlaybackUiState
 import com.joaohouto.clusterplayer.player.PlayerController
+import com.joaohouto.clusterplayer.data.model.Track
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+
+data class BottomBarUiState(
+    val currentTrack: Track? = null,
+    val isPlaying: Boolean = false,
+    val isShuffleEnabled: Boolean = false,
+    val repeatMode: Int = 0
+)
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -25,6 +35,22 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     val playbackState: StateFlow<PlaybackUiState> = playerController.uiState
+
+    val bottomBarState: StateFlow<BottomBarUiState> = playerController.uiState
+        .map {
+            BottomBarUiState(
+                currentTrack = it.currentTrack,
+                isPlaying = it.isPlaying,
+                isShuffleEnabled = it.isShuffleEnabled,
+                repeatMode = it.repeatMode
+            )
+        }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = BottomBarUiState()
+        )
 
     init {
         playerController.initialize()

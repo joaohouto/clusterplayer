@@ -66,6 +66,9 @@ class PlayerController private constructor(private val context: Context) {
     private val _uiState = MutableStateFlow(PlaybackUiState())
     val uiState: StateFlow<PlaybackUiState> = _uiState.asStateFlow()
 
+    private val _currentPosition = MutableStateFlow(0L)
+    val currentPosition: StateFlow<Long> = _currentPosition.asStateFlow()
+
     private var positionTickerJob: Job? = null
     private var lyricsLines: List<LrcLine>? = null
 
@@ -196,6 +199,7 @@ class PlayerController private constructor(private val context: Context) {
         val duration = if (controller.duration > 0) controller.duration else _uiState.value.currentTrack?.durationMs ?: 0L
         val currentPos = controller.currentPosition.coerceAtLeast(0L)
 
+        _currentPosition.value = currentPos
         _uiState.value = _uiState.value.copy(
             isPlaying = controller.isPlaying,
             currentPositionMs = currentPos,
@@ -226,11 +230,7 @@ class PlayerController private constructor(private val context: Context) {
                 val controller = mediaController
                 if (controller != null && controller.isPlaying) {
                     val pos = controller.currentPosition.coerceAtLeast(0L)
-                    val dur = if (controller.duration > 0) controller.duration else _uiState.value.durationMs
-                    _uiState.value = _uiState.value.copy(
-                        currentPositionMs = pos,
-                        durationMs = dur
-                    )
+                    _currentPosition.value = pos
                     updateLyricsLine(pos)
                 }
             }
@@ -271,6 +271,7 @@ class PlayerController private constructor(private val context: Context) {
     fun seekTo(positionMs: Long) {
         val controller = mediaController ?: return
         controller.seekTo(positionMs)
+        _currentPosition.value = positionMs
         _uiState.value = _uiState.value.copy(currentPositionMs = positionMs)
         updateLyricsLine(positionMs)
     }

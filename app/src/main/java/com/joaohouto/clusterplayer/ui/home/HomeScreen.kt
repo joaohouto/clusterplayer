@@ -74,7 +74,7 @@ fun HomeScreen(
 ) {
     val folders by viewModel.folders.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
-    val playbackState by viewModel.playbackState.collectAsState()
+    val bottomBarState by viewModel.bottomBarState.collectAsState()
 
     Box(
         modifier = modifier
@@ -176,7 +176,7 @@ fun HomeScreen(
                         start = 24.dp,
                         end = 24.dp,
                         top = 8.dp,
-                        bottom = if (playbackState.currentTrack != null) 116.dp else 24.dp
+                        bottom = if (bottomBarState.currentTrack != null) 116.dp else 24.dp
                     ),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -196,12 +196,13 @@ fun HomeScreen(
         }
 
         // Barra inferior de reprodução com TODOS os controles
-        if (playbackState.currentTrack != null) {
+        val currentTrack = bottomBarState.currentTrack
+        if (currentTrack != null) {
             FullControlsBottomPlaybackBar(
-                track = playbackState.currentTrack!!,
-                isPlaying = playbackState.isPlaying,
-                isShuffleEnabled = playbackState.isShuffleEnabled,
-                repeatMode = playbackState.repeatMode,
+                track = currentTrack,
+                isPlaying = bottomBarState.isPlaying,
+                isShuffleEnabled = bottomBarState.isShuffleEnabled,
+                repeatMode = bottomBarState.repeatMode,
                 onPlayPause = { viewModel.playPause() },
                 onNext = { viewModel.next() },
                 onPrevious = { viewModel.previous() },

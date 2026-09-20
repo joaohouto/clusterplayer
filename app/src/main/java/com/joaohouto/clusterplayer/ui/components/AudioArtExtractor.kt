@@ -9,8 +9,10 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 object AudioArtExtractor {
-    // Memory cache for embedded artwork bytes: max 32 items
-    private val artCache = object : LruCache<String, ByteArray>(32) {}
+    // Memory cache for embedded artwork bytes: max 8MB of byte data
+    private val artCache = object : LruCache<String, ByteArray>(8 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: ByteArray): Int = value.size
+    }
 
     suspend fun getEmbeddedArt(context: Context, uriOrPath: String): ByteArray? = withContext(Dispatchers.IO) {
         if (uriOrPath.isBlank()) return@withContext null

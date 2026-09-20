@@ -1,21 +1,45 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Project specific ProGuard rules for ClusterPlayer
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Preserve source file and line numbers for stack traces
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# AndroidX Media3 & ExoPlayer
+-keep class androidx.media3.** { *; }
+-dontwarn androidx.media3.**
+-keepattributes *Annotation*
+-keepclassmembers class * extends androidx.media3.session.MediaSessionService {
+    public <init>();
+}
+-keep class * extends androidx.media3.session.MediaSession$Callback { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Android Architecture Components / Room
+-keep class * extends androidx.room.RoomDatabase
+-dontwarn androidx.room.paging.**
+-keep @androidx.room.Entity class * { *; }
+-keep @androidx.room.Dao interface * { *; }
+-keep class * extends androidx.room.Dao { *; }
+-keepclassmembers class * {
+    @androidx.room.TypeConverter *;
+}
+
+# AndroidX DataStore
+-keep class androidx.datastore.** { *; }
+-dontwarn androidx.datastore.**
+
+# Coil Image Loader
+-keep class coil.** { *; }
+-dontwarn coil.**
+
+# Kotlin Coroutines
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-dontwarn kotlinx.coroutines.**
+
+# ClusterPlayer Models & Receivers
+-keep class com.joaohouto.clusterplayer.data.model.** { *; }
+-keep class com.joaohouto.clusterplayer.data.local.entity.** { *; }
+-keep public class com.joaohouto.clusterplayer.ClusterPlayerApplication
+-keep public class com.joaohouto.clusterplayer.player.PlaybackService
+-keep public class com.joaohouto.clusterplayer.player.AutoMediaButtonReceiver
+-keep public class com.joaohouto.clusterplayer.receiver.UsbMountReceiver

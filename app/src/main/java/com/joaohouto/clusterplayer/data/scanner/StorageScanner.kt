@@ -3,10 +3,8 @@ package com.joaohouto.clusterplayer.data.scanner
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.Context
-import android.database.Cursor
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
@@ -31,7 +29,7 @@ class StorageScanner(private val context: Context) {
     }
 
     suspend fun scanStorage(): ScanResult = withContext(Dispatchers.IO) {
-        val tracksMap = mutableMapOf<String, TrackEntity>() // Key: file path or URI
+        val tracksMap = mutableMapOf<String, TrackEntity>() // Key: canonical path or content URI
 
         // 1. Scan via MediaStore (Fast and reliable for Android indexed media)
         try {
@@ -47,9 +45,12 @@ class StorageScanner(private val context: Context) {
             Log.e(TAG, "Error scanning physical storage", e)
         }
 
-        // Group tracks by folder
-        val folderTracks = tracksMap.values.groupBy { it.folderPath }
-        val folders = mutableListOf<FolderEntity>()
+        // Group tracks by canonical folder path to prevent duplicates caused by symlinks (/sdcard, /storage/self/primary)
+        val folderTracks = tracksMap.values.groupBy { track ->
+            getCanonicalFolderPath(track.folderPath)
+        }
+
+        val foldersMap = mutableMapOf<String, FolderEntity>()
 
         for ((folderPath, tracks) in folderTracks) {
             if (tracks.isNotEmpty()) {
@@ -59,24 +60,47 @@ class StorageScanner(private val context: Context) {
                 } catch (e: Exception) {
                     folderPath
                 }
-                folders.add(
-                    FolderEntity(
+
+                // Deduplicate check: if a folder with the same name and same track count already exists,
+                // prefer the public standard path (/storage/...) over system daemon mount paths (/mnt/media_rw/...)
+                val existing = foldersMap.values.find { it.name.equals(folderName, ignoreCase = true) && it.trackCount == tracks.size }
+                if (existing != null) {
+                    if (folderPath.startsWith("/storage/") && !existing.path.startsWith("/storage/")) {
+                        foldersMap.remove(existing.path)
+                        foldersMap[folderPath] = FolderEntity(
+                            path = folderPath,
+                            name = folderName,
+                            trackCount = tracks.size,
+                            lastModified = System.currentTimeMillis()
+                        )
+                    }
+                } else {
+                    foldersMap[folderPath] = FolderEntity(
                         path = folderPath,
                         name = folderName,
                         trackCount = tracks.size,
                         lastModified = System.currentTimeMillis()
                     )
-                )
+                }
             }
         }
 
-        // Sort folders alphabetically
-        folders.sortBy { it.name.lowercase(Locale.ROOT) }
+        val sortedFolders = foldersMap.values.toMutableList()
+        sortedFolders.sortBy { it.name.lowercase(Locale.ROOT) }
 
         ScanResult(
-            folders = folders,
+            folders = sortedFolders,
             tracks = tracksMap.values.toList()
         )
+    }
+
+    private fun getCanonicalFolderPath(path: String): String {
+        return try {
+            val file = File(path)
+            if (file.exists()) file.canonicalPath else path
+        } catch (e: Exception) {
+            path
+        }
     }
 
     private fun scanMediaStore(tracksMap: MutableMap<String, TrackEntity>) {
@@ -118,7 +142,8 @@ class StorageScanner(private val context: Context) {
                 val ext = file?.extension?.lowercase(Locale.ROOT) ?: ""
 
                 if (filePath.isEmpty() || ext in SUPPORTED_EXTENSIONS) {
-                    val folderPath = file?.parentFile?.absolutePath ?: "Root"
+                    val canonicalPath = try { file?.canonicalPath ?: filePath } catch (e: Exception) { filePath }
+                    val folderPath = try { file?.parentFile?.canonicalPath ?: "Root" } catch (e: Exception) { "Root" }
                     val unknownTrackStr = context.getString(R.string.unknown_track)
                     val unknownArtistStr = context.getString(R.string.unknown_artist)
                     val unknownAlbumStr = context.getString(R.string.unknown_album)
@@ -127,7 +152,7 @@ class StorageScanner(private val context: Context) {
                     val entity = TrackEntity(
                         id = 0,
                         uri = contentUri,
-                        path = filePath,
+                        path = canonicalPath,
                         title = displayName,
                         artist = if (artist.isNullOrBlank() || artist == "<unknown>") unknownArtistStr else artist,
                         album = if (album.isNullOrBlank() || album == "<unknown>") unknownAlbumStr else album,
@@ -135,7 +160,7 @@ class StorageScanner(private val context: Context) {
                         folderPath = folderPath,
                         trackNumber = trackNum
                     )
-                    tracksMap[filePath.ifEmpty { contentUri }] = entity
+                    tracksMap[canonicalPath.ifEmpty { contentUri }] = entity
                 }
             }
         }
@@ -143,39 +168,65 @@ class StorageScanner(private val context: Context) {
 
     private fun scanPhysicalStorage(tracksMap: MutableMap<String, TrackEntity>) {
         val searchRoots = mutableListOf<File>()
+        val foundUsbNames = mutableSetOf<String>()
 
-        // 1. External storage directory
+        // 1. External storage directory (Standard internal storage)
         val extStorage = Environment.getExternalStorageDirectory()
         if (extStorage != null && extStorage.exists() && extStorage.canRead()) {
-            searchRoots.add(extStorage)
+            val canonical = try { extStorage.canonicalFile } catch (e: Exception) { extStorage }
+            searchRoots.add(canonical)
         }
 
         // 2. /storage directory (for USB drives, external SD cards like /storage/XXXX-XXXX)
         val storageDir = File("/storage")
         if (storageDir.exists() && storageDir.canRead()) {
             storageDir.listFiles()?.forEach { file ->
-                if (file.isDirectory && file.canRead() && !file.name.equals("emulated", ignoreCase = true) && !file.name.equals("self", ignoreCase = true)) {
-                    searchRoots.add(file)
+                if (file.isDirectory && file.canRead() &&
+                    !file.name.equals("emulated", ignoreCase = true) &&
+                    !file.name.equals("self", ignoreCase = true)) {
+                    val canonical = try { file.canonicalFile } catch (e: Exception) { file }
+                    if (!searchRoots.any { it.path == canonical.path }) {
+                        searchRoots.add(canonical)
+                        foundUsbNames.add(file.name.lowercase(Locale.ROOT))
+                    }
                 }
             }
         }
 
         // 3. /mnt/media_rw or /mnt/usb (common on automotive Android ROMs)
+        // ONLY scan if the drive was not already found in /storage to prevent duplicate folder listings
         val mntDir = File("/mnt")
         if (mntDir.exists() && mntDir.canRead()) {
             mntDir.listFiles()?.forEach { file ->
                 if (file.isDirectory && (file.name.contains("usb", ignoreCase = true) || file.name.contains("media", ignoreCase = true) || file.name.contains("sdcard", ignoreCase = true))) {
-                    searchRoots.add(file)
+                    val canonical = try { file.canonicalFile } catch (e: Exception) { file }
+                    val dirNameLower = file.name.lowercase(Locale.ROOT)
+                    val isDuplicate = searchRoots.any { it.path == canonical.path } || foundUsbNames.any { dirNameLower.contains(it) }
+                    if (!isDuplicate) {
+                        searchRoots.add(canonical)
+                    }
                 }
             }
         }
 
-        for (root in searchRoots) {
-            scanDirectoryRecursively(root, tracksMap)
+        // Reuse a single MediaMetadataRetriever instance across all physical files for massive speedup
+        val retriever = MediaMetadataRetriever()
+        try {
+            for (root in searchRoots) {
+                scanDirectoryRecursively(root, tracksMap, retriever)
+            }
+        } finally {
+            try {
+                retriever.release()
+            } catch (ignored: Exception) {}
         }
     }
 
-    private fun scanDirectoryRecursively(dir: File, tracksMap: MutableMap<String, TrackEntity>) {
+    private fun scanDirectoryRecursively(
+        dir: File,
+        tracksMap: MutableMap<String, TrackEntity>,
+        retriever: MediaMetadataRetriever
+    ) {
         if (!dir.exists() || !dir.canRead()) return
 
         // Skip system/hidden folders
@@ -188,23 +239,25 @@ class StorageScanner(private val context: Context) {
 
         for (file in files) {
             if (file.isDirectory) {
-                scanDirectoryRecursively(file, tracksMap)
+                scanDirectoryRecursively(file, tracksMap, retriever)
             } else if (file.isFile) {
                 val ext = file.extension.lowercase(Locale.ROOT)
                 if (ext in SUPPORTED_EXTENSIONS) {
-                    val filePath = file.absolutePath
-                    if (!tracksMap.containsKey(filePath)) {
-                        // Extract metadata from file directly
-                        val track = extractTrackMetadata(file)
-                        tracksMap[filePath] = track
+                    val canonicalPath = try { file.canonicalPath } catch (e: Exception) { file.absolutePath }
+                    if (!tracksMap.containsKey(canonicalPath) && !tracksMap.containsKey(file.absolutePath)) {
+                        val track = extractTrackMetadata(file, canonicalPath, retriever)
+                        tracksMap[canonicalPath] = track
                     }
                 }
             }
         }
     }
 
-    private fun extractTrackMetadata(file: File): TrackEntity {
-        val retriever = MediaMetadataRetriever()
+    private fun extractTrackMetadata(
+        file: File,
+        canonicalPath: String,
+        retriever: MediaMetadataRetriever
+    ): TrackEntity {
         var title = file.nameWithoutExtension
         var artist = context.getString(R.string.unknown_artist)
         var album = context.getString(R.string.unknown_album)
@@ -228,19 +281,15 @@ class StorageScanner(private val context: Context) {
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to read ID3 from ${file.absolutePath}: ${e.message}")
-        } finally {
-            try {
-                retriever.release()
-            } catch (ignored: Exception) {}
         }
 
         val uri = Uri.fromFile(file).toString()
-        val folderPath = file.parentFile?.absolutePath ?: "Root"
+        val folderPath = try { file.parentFile?.canonicalPath ?: (file.parentFile?.absolutePath ?: "Root") } catch (e: Exception) { "Root" }
 
         return TrackEntity(
             id = 0,
             uri = uri,
-            path = file.absolutePath,
+            path = canonicalPath,
             title = title,
             artist = artist,
             album = album,

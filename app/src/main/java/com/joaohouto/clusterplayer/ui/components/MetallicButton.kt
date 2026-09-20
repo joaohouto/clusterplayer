@@ -47,6 +47,8 @@ enum class MetallicButtonStyle {
     Outlined
 }
 
+private val ButtonShape = RoundedCornerShape(12.dp)
+
 @Composable
 fun MetallicButton(
     onClick: () -> Unit,
@@ -60,27 +62,30 @@ fun MetallicButton(
     textSize: TextUnit = 16.sp,
     contentDescription: String? = null
 ) {
-    val shape = RoundedCornerShape(12.dp)
     val accent = LocalClusterAccent.current
 
-    val backgroundBrush = when (style) {
-        MetallicButtonStyle.Accent -> Brush.verticalGradient(
-            colors = listOf(accent.primary, accent.dark)
-        )
-        MetallicButtonStyle.Standard -> if (isActive) {
-            Brush.verticalGradient(listOf(MetallicIntermediate, SurfaceCard))
-        } else {
-            Brush.verticalGradient(listOf(SurfaceCard, Color(0xFF101215)))
+    val backgroundBrush = remember(style, isActive, accent) {
+        when (style) {
+            MetallicButtonStyle.Accent -> Brush.verticalGradient(
+                colors = listOf(accent.primary, accent.dark)
+            )
+            MetallicButtonStyle.Standard -> if (isActive) {
+                Brush.verticalGradient(listOf(MetallicIntermediate, SurfaceCard))
+            } else {
+                Brush.verticalGradient(listOf(SurfaceCard, Color(0xFF101215)))
+            }
+            MetallicButtonStyle.Outlined -> Brush.verticalGradient(
+                colors = listOf(SurfaceCard, SurfaceCard)
+            )
         }
-        MetallicButtonStyle.Outlined -> Brush.verticalGradient(
-            colors = listOf(SurfaceCard, SurfaceCard)
-        )
     }
 
-    val borderStroke = when {
-        isActive -> BorderStroke(1.5.dp, accent.primary)
-        style == MetallicButtonStyle.Accent -> BorderStroke(1.dp, accent.primary.copy(alpha = 0.8f))
-        else -> BorderStroke(1.dp, SurfaceCardBorder)
+    val borderStroke = remember(style, isActive, accent.primary) {
+        when {
+            isActive -> BorderStroke(1.5.dp, accent.primary)
+            style == MetallicButtonStyle.Accent -> BorderStroke(1.dp, accent.primary.copy(alpha = 0.8f))
+            else -> BorderStroke(1.dp, SurfaceCardBorder)
+        }
     }
 
     val contentColor = when {
@@ -92,13 +97,13 @@ fun MetallicButton(
     Surface(
         modifier = modifier
             .defaultMinSize(minWidth = minSize, minHeight = minSize)
-            .clip(shape)
+            .clip(ButtonShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = rememberRipple(color = if (style == MetallicButtonStyle.Accent) Color.White else accent.primary),
                 onClick = onClick
             ),
-        shape = shape,
+        shape = ButtonShape,
         border = borderStroke,
         color = Color.Transparent
     ) {

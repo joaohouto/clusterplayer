@@ -267,11 +267,10 @@ fun PlayerScreen(
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                // Barra de Progresso Vermelha
-                ProgressBarSlider(
-                    currentPositionMs = state.currentPositionMs,
-                    durationMs = state.durationMs,
-                    onSeek = { targetMs -> viewModel.seekTo(targetMs) }
+                // Barra de Progresso com StateFlow de posição isolado (evita recomposição de tela a cada 250ms)
+                TrackProgressSection(
+                    viewModel = viewModel,
+                    durationMs = state.durationMs
                 )
             }
         }
@@ -560,3 +559,19 @@ private fun formatTrackDuration(durationMs: Long): String {
     val secStr = if (seconds < 10) "0$seconds" else seconds.toString()
     return "$minStr:$secStr"
 }
+
+@Composable
+private fun TrackProgressSection(
+    viewModel: PlayerViewModel,
+    durationMs: Long,
+    modifier: Modifier = Modifier
+) {
+    val currentPositionMs by viewModel.currentPosition.collectAsState()
+    ProgressBarSlider(
+        currentPositionMs = currentPositionMs,
+        durationMs = durationMs,
+        onSeek = { targetMs -> viewModel.seekTo(targetMs) },
+        modifier = modifier
+    )
+}
+
