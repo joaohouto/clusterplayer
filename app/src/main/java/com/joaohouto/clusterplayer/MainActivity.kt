@@ -33,6 +33,13 @@ import com.joaohouto.clusterplayer.ui.player.PlayerViewModel
 import com.joaohouto.clusterplayer.ui.theme.ClusterPlayerTheme
 import com.joaohouto.clusterplayer.ui.theme.DeepMetallicBackground
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.joaohouto.clusterplayer.data.local.PreferencesDataStore
+import com.joaohouto.clusterplayer.ui.settings.SettingsDialog
+import com.joaohouto.clusterplayer.ui.theme.getAccentThemeById
+
 enum class Screen {
     Home,
     Player
@@ -42,6 +49,7 @@ class MainActivity : ComponentActivity() {
 
     private val homeViewModel: HomeViewModel by viewModels()
     private val playerViewModel: PlayerViewModel by viewModels()
+    private lateinit var preferencesDataStore: PreferencesDataStore
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -57,11 +65,18 @@ class MainActivity : ComponentActivity() {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         enableEdgeToEdge()
 
+        preferencesDataStore = PreferencesDataStore.getInstance(this)
         PlayerController.getInstance(this).initialize()
         checkAndRequestPermissions()
 
         setContent {
-            ClusterPlayerTheme {
+            val accentThemeId by preferencesDataStore.accentThemeFlow.collectAsState(initial = "needle_red")
+            val crossfadeSeconds by preferencesDataStore.crossfadeSecondsFlow.collectAsState(initial = 3)
+            val currentAccent = remember(accentThemeId) { getAccentThemeById(accentThemeId) }
+            val coroutineScope = rememberCoroutineScope()
+            var showSettingsDialog by remember { mutableStateOf(false) }
+
+            ClusterPlayerTheme(accentTheme = currentAccent) {
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()
@@ -71,8 +86,27 @@ class MainActivity : ComponentActivity() {
                 ) {
                     ClusterApp(
                         homeViewModel = homeViewModel,
-                        playerViewModel = playerViewModel
+                        playerViewModel = playerViewModel,
+                        onOpenSettings = { showSettingsDialog = true }
                     )
+
+                    if (showSettingsDialog) {
+                        SettingsDialog(
+                            currentAccentTheme = currentAccent,
+                            currentCrossfadeSeconds = crossfadeSeconds,
+                            onSelectAccent = { newThemeId ->
+                                coroutineScope.launch {
+                                    preferencesDataStore.saveAccentTheme(newThemeId)
+                                }
+                            },
+                            onSelectCrossfade = { newSeconds ->
+                                coroutineScope.launch {
+                                    preferencesDataStore.saveCrossfadeSeconds(newSeconds)
+                                }
+                            },
+                            onDismiss = { showSettingsDialog = false }
+                        )
+                    }
                 }
             }
         }
@@ -113,7 +147,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ClusterApp(
     homeViewModel: HomeViewModel,
-    playerViewModel: PlayerViewModel
+    playerViewModel: PlayerViewModel,
+    onOpenSettings: () -> Unit
 ) {
     var currentScreen by remember { mutableStateOf(Screen.Player) }
 
@@ -126,13 +161,15 @@ fun ClusterApp(
             Screen.Player -> {
                 PlayerScreen(
                     viewModel = playerViewModel,
-                    onNavigateToHome = { currentScreen = Screen.Home }
+                    onNavigateToHome = { currentScreen = Screen.Home },
+                    onOpenSettings = onOpenSettings
                 )
             }
             Screen.Home -> {
                 HomeScreen(
                     viewModel = homeViewModel,
-                    onNavigateToPlayer = { currentScreen = Screen.Player }
+                    onNavigateToPlayer = { currentScreen = Screen.Player },
+                    onOpenSettings = onOpenSettings
                 )
             }
         }

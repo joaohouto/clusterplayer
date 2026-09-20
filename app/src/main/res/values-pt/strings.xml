@@ -37,4 +37,28 @@
     <string name="desc_refresh">Atualizar pastas</string>
     <string name="desc_back_to_folders">Voltar para Pastas</string>
     <string name="error_cannot_play">Não foi possível reproduzir</string>
+
+    <!-- Settings & Customization -->
+    <string name="btn_settings">Ajustes</string>
+    <string name="desc_settings">Abrir configurações</string>
+    <string name="settings_title">CONFIGURAÇÕES</string>
+    <string name="settings_accent_title">Iluminação do Painel</string>
+    <string name="settings_accent_subtitle">Escolha a cor dos ponteiros e elementos de destaque</string>
+    <string name="settings_crossfade_title">Transição Gradual (Fade)</string>
+    <string name="settings_crossfade_subtitle">Suavização de volume entre faixas</string>
+    <string name="settings_crossfade_disabled">Desativado</string>
+    <string name="settings_crossfade_seconds">%1$d segundos</string>
+    <string name="settings_crossfade_hint">Reduz suavemente o volume no final da faixa e eleva no início da próxima, eliminando cortes abruptos ao dirigir.</string>
+    <string name="settings_about_title">SOBRE</string>
+    <string name="settings_about_app">Cluster Player</string>
+    <string name="settings_about_desc">Reprodutor de alta performance projetado para multimídias automotivas Android.</string>
+
+    <!-- Theme Names -->
+    <string name="theme_needle_red">Needle Red</string>
+    <string name="theme_m_sport_blue">M-Sport Blue</string>
+    <string name="theme_racing_yellow">Racing Yellow</string>
+    <string name="theme_green_hell">Green Hell</string>
+    <string name="theme_sunset_orange">Sunset Orange</string>
+    <string name="theme_electric_cyan">Electric Cyan</string>
+    <string name="theme_pure_silver">Pure Silver</string>
 </resources>

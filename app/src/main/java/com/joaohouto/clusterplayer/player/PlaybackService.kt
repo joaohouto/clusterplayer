@@ -54,6 +54,11 @@ class PlaybackService : MediaSessionService() {
     private var positionSavingJob: Job? = null
     private var retryCount = 0
 
+    private var crossfadeSeconds: Int = 3
+    private var fadeInJob: Job? = null
+    private var fadeTickerJob: Job? = null
+    private var fadeOutActive: Boolean = false
+
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Creating PlaybackService...")
@@ -69,6 +74,13 @@ class PlaybackService : MediaSessionService() {
         initializeMediaSession()
         setupPlayerListeners()
         startPeriodicPositionSaving()
+
+        serviceScope.launch {
+            preferencesDataStore.crossfadeSecondsFlow.collect { seconds ->
+                crossfadeSeconds = seconds
+                Log.d(TAG, "Crossfade seconds updated: $crossfadeSeconds")
+            }
+        }
 
         // Trigger autoplay restoration
         serviceScope.launch {
@@ -155,10 +167,23 @@ class PlaybackService : MediaSessionService() {
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 saveCurrentStateImmediate()
+                if (isPlaying) {
+                    startFadeTicker()
+                    if (crossfadeSeconds > 0 && player.volume < 0.2f) {
+                        startFadeIn(1200L)
+                    }
+                } else {
+                    stopFadeTicker()
+                }
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 saveCurrentStateImmediate()
+                if (crossfadeSeconds > 0 && mediaItem != null) {
+                    startFadeIn((crossfadeSeconds * 1000L).coerceIn(1000L, 3500L))
+                } else {
+                    player.volume = 1.0f
+                }
             }
 
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
@@ -211,6 +236,60 @@ class PlaybackService : MediaSessionService() {
         } else {
             Log.e(TAG, "Max retries reached. Playback stopped due to persistent error.")
         }
+    }
+
+    private fun startFadeIn(durationMs: Long) {
+        fadeInJob?.cancel()
+        fadeOutActive = false
+        if (durationMs <= 0L) {
+            player.volume = 1.0f
+            return
+        }
+        fadeInJob = serviceScope.launch {
+            player.volume = 0.0f
+            val stepInterval = 40L
+            val steps = (durationMs / stepInterval).coerceAtLeast(1)
+            for (i in 1..steps) {
+                delay(stepInterval)
+                val linearProgress = i.toFloat() / steps
+                val easedVolume = Math.sin(linearProgress * Math.PI / 2).toFloat().coerceIn(0f, 1f)
+                player.volume = easedVolume
+            }
+            player.volume = 1.0f
+        }
+    }
+
+    private fun updateFadeOut(remainingMs: Long, fadeDurationMs: Long) {
+        if (fadeInJob?.isActive == true) return
+        fadeOutActive = true
+        val progress = (remainingMs.toFloat() / fadeDurationMs.toFloat()).coerceIn(0f, 1f)
+        val easedVolume = Math.sin(progress * Math.PI / 2).toFloat().coerceIn(0f, 1f)
+        player.volume = easedVolume
+    }
+
+    private fun startFadeTicker() {
+        fadeTickerJob?.cancel()
+        fadeTickerJob = serviceScope.launch {
+            while (isActive) {
+                delay(150L)
+                if (player.isPlaying && crossfadeSeconds > 0 && player.duration > 0) {
+                    val remainingMs = player.duration - player.currentPosition
+                    val fadeDurationMs = crossfadeSeconds * 1000L
+                    if (remainingMs in 0..fadeDurationMs) {
+                        updateFadeOut(remainingMs, fadeDurationMs)
+                    } else if (fadeOutActive && fadeInJob?.isActive != true) {
+                        fadeOutActive = false
+                        player.volume = 1.0f
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopFadeTicker() {
+        fadeTickerJob?.cancel()
+        fadeTickerJob = null
+        fadeOutActive = false
     }
 
     private fun startPeriodicPositionSaving() {
@@ -334,6 +413,8 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         saveCurrentStateImmediate()
+        stopFadeTicker()
+        fadeInJob?.cancel()
         positionSavingJob?.cancel()
         serviceScope.cancel()
 

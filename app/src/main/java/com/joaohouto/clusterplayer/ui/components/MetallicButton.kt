@@ -33,10 +33,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.joaohouto.clusterplayer.ui.theme.LocalClusterAccent
 import com.joaohouto.clusterplayer.ui.theme.MetallicBorder
 import com.joaohouto.clusterplayer.ui.theme.MetallicIntermediate
-import com.joaohouto.clusterplayer.ui.theme.NeedleRed
-import com.joaohouto.clusterplayer.ui.theme.NeedleRedDark
 import com.joaohouto.clusterplayer.ui.theme.SurfaceCard
 import com.joaohouto.clusterplayer.ui.theme.SurfaceCardBorder
 import com.joaohouto.clusterplayer.ui.theme.TextPrimary
@@ -62,10 +61,11 @@ fun MetallicButton(
     contentDescription: String? = null
 ) {
     val shape = RoundedCornerShape(12.dp)
+    val accent = LocalClusterAccent.current
 
     val backgroundBrush = when (style) {
         MetallicButtonStyle.Accent -> Brush.verticalGradient(
-            colors = listOf(NeedleRed, NeedleRedDark)
+            colors = listOf(accent.primary, accent.dark)
         )
         MetallicButtonStyle.Standard -> if (isActive) {
             Brush.verticalGradient(listOf(MetallicIntermediate, SurfaceCard))
@@ -78,13 +78,13 @@ fun MetallicButton(
     }
 
     val borderStroke = when {
-        isActive -> BorderStroke(1.5.dp, NeedleRed)
-        style == MetallicButtonStyle.Accent -> BorderStroke(1.dp, Color(0xFFFF4D58))
+        isActive -> BorderStroke(1.5.dp, accent.primary)
+        style == MetallicButtonStyle.Accent -> BorderStroke(1.dp, accent.primary.copy(alpha = 0.8f))
         else -> BorderStroke(1.dp, SurfaceCardBorder)
     }
 
     val contentColor = when {
-        isActive -> NeedleRed
+        isActive -> accent.primary
         style == MetallicButtonStyle.Accent -> TextPrimary
         else -> TextPrimary
     }
@@ -95,7 +95,7 @@ fun MetallicButton(
             .clip(shape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = rememberRipple(color = if (style == MetallicButtonStyle.Accent) Color.White else NeedleRed),
+                indication = rememberRipple(color = if (style == MetallicButtonStyle.Accent) Color.White else accent.primary),
                 onClick = onClick
             ),
         shape = shape,

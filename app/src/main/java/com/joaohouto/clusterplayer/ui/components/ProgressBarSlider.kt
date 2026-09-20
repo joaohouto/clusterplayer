@@ -27,7 +27,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.joaohouto.clusterplayer.ui.theme.NeedleRed
+import com.joaohouto.clusterplayer.ui.theme.LocalClusterAccent
 import com.joaohouto.clusterplayer.ui.theme.TextSecondary
 import com.joaohouto.clusterplayer.ui.theme.TrackRail
 import java.util.Locale
@@ -41,6 +41,7 @@ fun ProgressBarSlider(
 ) {
     var isDragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(0f) }
+    val accentColor = LocalClusterAccent.current.primary
 
     val validDuration = if (durationMs > 0) durationMs else 1L
     val currentFraction = if (isDragging) {
@@ -105,11 +106,11 @@ fun ProgressBarSlider(
                 cornerRadius = cornerRadius
             )
 
-            // Progress Fill: Sporty Needle Red #E61924
+            // Progress Fill with dynamic accent
             val fillWidth = size.width * currentFraction
             if (fillWidth > 0) {
                 drawRoundRect(
-                    color = NeedleRed,
+                    color = accentColor,
                     topLeft = Offset(0f, topY),
                     size = Size(fillWidth, railHeight),
                     cornerRadius = cornerRadius
@@ -124,7 +125,7 @@ fun ProgressBarSlider(
                 center = Offset(fillWidth.coerceIn(thumbRadius, size.width - thumbRadius), centerY)
             )
             drawCircle(
-                color = NeedleRed,
+                color = accentColor,
                 radius = thumbRadius - 2.dp.toPx(),
                 center = Offset(fillWidth.coerceIn(thumbRadius, size.width - thumbRadius), centerY)
             )

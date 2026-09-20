@@ -37,4 +37,28 @@
     <string name="desc_refresh">Refresh folders</string>
     <string name="desc_back_to_folders">Back to Folders</string>
     <string name="error_cannot_play">Could not play track</string>
+
+    <!-- Settings & Customization -->
+    <string name="btn_settings">Settings</string>
+    <string name="desc_settings">Open settings</string>
+    <string name="settings_title">SETTINGS</string>
+    <string name="settings_accent_title">Cluster Lighting Color</string>
+    <string name="settings_accent_subtitle">Select the gauge and button accent color</string>
+    <string name="settings_crossfade_title">Gradual Transition (Fade)</string>
+    <string name="settings_crossfade_subtitle">Smooth volume curve between tracks</string>
+    <string name="settings_crossfade_disabled">Disabled</string>
+    <string name="settings_crossfade_seconds">%1$d seconds</string>
+    <string name="settings_crossfade_hint">Smoothly decreases volume at track end and raises it at the beginning of the next track to eliminate jarring sound cuts while driving.</string>
+    <string name="settings_about_title">ABOUT</string>
+    <string name="settings_about_app">Cluster Player</string>
+    <string name="settings_about_desc">High-performance music player engineered for Android automotive head units.</string>
+
+    <!-- Theme Names -->
+    <string name="theme_needle_red">Needle Red</string>
+    <string name="theme_m_sport_blue">M-Sport Blue</string>
+    <string name="theme_racing_yellow">Racing Yellow</string>
+    <string name="theme_green_hell">Green Hell</string>
+    <string name="theme_sunset_orange">Sunset Orange</string>
+    <string name="theme_electric_cyan">Electric Cyan</string>
+    <string name="theme_pure_silver">Pure Silver</string>
 </resources>

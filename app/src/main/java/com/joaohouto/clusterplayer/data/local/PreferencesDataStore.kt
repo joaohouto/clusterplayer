@@ -31,6 +31,8 @@ class PreferencesDataStore(private val context: Context) {
         val KEY_LAST_POSITION_MS = longPreferencesKey("last_position_ms")
         val KEY_SHUFFLE_MODE = booleanPreferencesKey("shuffle_mode")
         val KEY_REPEAT_MODE = intPreferencesKey("repeat_mode")
+        val KEY_ACCENT_THEME = stringPreferencesKey("accent_theme")
+        val KEY_CROSSFADE_SECONDS = intPreferencesKey("crossfade_seconds")
 
         @Volatile
         private var INSTANCE: PreferencesDataStore? = null
@@ -89,9 +91,29 @@ class PreferencesDataStore(private val context: Context) {
         }
     }
 
+    val accentThemeFlow: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_ACCENT_THEME] ?: "needle_red"
+    }
+
+    val crossfadeSecondsFlow: Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[KEY_CROSSFADE_SECONDS] ?: 3
+    }
+
     suspend fun saveRepeatMode(repeatMode: Int) {
         context.dataStore.edit { prefs ->
             prefs[KEY_REPEAT_MODE] = repeatMode
+        }
+    }
+
+    suspend fun saveAccentTheme(themeId: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_ACCENT_THEME] = themeId
+        }
+    }
+
+    suspend fun saveCrossfadeSeconds(seconds: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_CROSSFADE_SECONDS] = seconds
         }
     }
 }

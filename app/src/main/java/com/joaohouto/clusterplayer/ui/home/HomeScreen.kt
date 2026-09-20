@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -56,9 +57,9 @@ import com.joaohouto.clusterplayer.ui.components.MetallicButton
 import com.joaohouto.clusterplayer.ui.components.MetallicButtonStyle
 import com.joaohouto.clusterplayer.ui.components.SquareAlbumArt
 import com.joaohouto.clusterplayer.ui.theme.DeepMetallicBackground
+import com.joaohouto.clusterplayer.ui.theme.LocalClusterAccent
 import com.joaohouto.clusterplayer.ui.theme.MetallicBorder
 import com.joaohouto.clusterplayer.ui.theme.MetallicIntermediate
-import com.joaohouto.clusterplayer.ui.theme.NeedleRed
 import com.joaohouto.clusterplayer.ui.theme.SurfaceCard
 import com.joaohouto.clusterplayer.ui.theme.SurfaceCardBorder
 import com.joaohouto.clusterplayer.ui.theme.TextPrimary
@@ -68,6 +69,7 @@ import com.joaohouto.clusterplayer.ui.theme.TextSecondary
 fun HomeScreen(
     viewModel: HomeViewModel,
     onNavigateToPlayer: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val folders by viewModel.folders.collectAsState()
@@ -102,7 +104,7 @@ fun HomeScreen(
                     if (isScanning) {
                         Spacer(modifier = Modifier.width(16.dp))
                         CircularProgressIndicator(
-                            color = NeedleRed,
+                            color = LocalClusterAccent.current.primary,
                             modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp
                         )
@@ -115,13 +117,25 @@ fun HomeScreen(
                     }
                 }
 
-                MetallicButton(
-                    onClick = { viewModel.rescan() },
-                    icon = Icons.Rounded.Refresh,
-                    text = stringResource(R.string.btn_refresh),
-                    minSize = 54.dp,
-                    contentDescription = stringResource(R.string.desc_refresh)
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    MetallicButton(
+                        onClick = onOpenSettings,
+                        icon = Icons.Rounded.Settings,
+                        minSize = 54.dp,
+                        contentDescription = stringResource(R.string.desc_settings)
+                    )
+
+                    MetallicButton(
+                        onClick = { viewModel.rescan() },
+                        icon = Icons.Rounded.Refresh,
+                        text = stringResource(R.string.btn_refresh),
+                        minSize = 54.dp,
+                        contentDescription = stringResource(R.string.desc_refresh)
+                    )
+                }
             }
 
             // Folders Grid (otimizada para landscape / ultrawide)
@@ -212,6 +226,7 @@ private fun FolderCard(
         border = BorderStroke(1.dp, SurfaceCardBorder),
         shape = RoundedCornerShape(14.dp)
     ) {
+        val accent = LocalClusterAccent.current.primary
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -228,7 +243,7 @@ private fun FolderCard(
                 Icon(
                     imageVector = Icons.Rounded.Folder,
                     contentDescription = null,
-                    tint = NeedleRed,
+                    tint = accent,
                     modifier = Modifier.size(34.dp)
                 )
             }
@@ -258,13 +273,13 @@ private fun FolderCard(
                 modifier = Modifier
                     .size(52.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(NeedleRed.copy(alpha = 0.15f)),
+                    .background(accent.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Rounded.PlayArrow,
                     contentDescription = stringResource(R.string.btn_play_all),
-                    tint = NeedleRed,
+                    tint = accent,
                     modifier = Modifier.size(30.dp)
                 )
             }

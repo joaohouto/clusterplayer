@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -67,7 +68,7 @@ import com.joaohouto.clusterplayer.ui.components.MetallicButtonStyle
 import com.joaohouto.clusterplayer.ui.components.ProgressBarSlider
 import com.joaohouto.clusterplayer.ui.components.SquareAlbumArt
 import com.joaohouto.clusterplayer.ui.theme.DeepMetallicBackground
-import com.joaohouto.clusterplayer.ui.theme.NeedleRed
+import com.joaohouto.clusterplayer.ui.theme.LocalClusterAccent
 import com.joaohouto.clusterplayer.ui.theme.TextPrimary
 import com.joaohouto.clusterplayer.ui.theme.TextSecondary
 
@@ -75,6 +76,7 @@ import com.joaohouto.clusterplayer.ui.theme.TextSecondary
 fun PlayerScreen(
     viewModel: PlayerViewModel,
     onNavigateToHome: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.playbackState.collectAsState()
@@ -130,6 +132,14 @@ fun PlayerScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Botão de Configurações
+                MetallicButton(
+                    onClick = onOpenSettings,
+                    icon = Icons.Rounded.Settings,
+                    minSize = 72.dp,
+                    contentDescription = stringResource(R.string.desc_settings)
+                )
+
                 // Botão para abrir listagem de músicas da pasta que está tocando atualmente (Fila de reprodução)
                 MetallicButton(
                     onClick = { showTracksDialog = true },
@@ -192,6 +202,7 @@ fun PlayerScreen(
                     contentAlignment = Alignment.CenterStart
                 ) {
                     val lyricsLine = state.currentLyricsLine
+                    val accentColor = LocalClusterAccent.current.primary
                     if (!lyricsLine.isNullOrBlank()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -200,13 +211,13 @@ fun PlayerScreen(
                             Icon(
                                 imageVector = Icons.Rounded.GraphicEq,
                                 contentDescription = null,
-                                tint = NeedleRed,
+                                tint = accentColor,
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = lyricsLine,
-                                color = NeedleRed,
+                                color = accentColor,
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
@@ -384,9 +395,10 @@ private fun FolderTracksDialog(
     onSelectTrack: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val accent = LocalClusterAccent.current.primary
     val itemShape = remember { RoundedCornerShape(8.dp) }
     val itemBorder = remember { BorderStroke(1.dp, SurfaceCardBorder) }
-    val activeBorder = remember { BorderStroke(1.dp, NeedleRed) }
+    val activeBorder = remember(accent) { BorderStroke(1.dp, accent) }
 
     // Rola instantaneamente a lista para posicionar na música atual que está tocando
     val currentTrackIndex = remember(tracks, currentTrackUri) {
@@ -485,6 +497,7 @@ private fun TrackQueueItem(
     val formattedIndex = remember(index) { formatTrackIndex(index) }
     val formattedDuration = remember(track.durationMs) { formatTrackDuration(track.durationMs) }
 
+    val accent = LocalClusterAccent.current.primary
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -497,7 +510,7 @@ private fun TrackQueueItem(
     ) {
         Text(
             text = formattedIndex,
-            color = if (isCurrent) NeedleRed else TextSecondary,
+            color = if (isCurrent) accent else TextSecondary,
             fontSize = 16.sp,
             fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.SemiBold,
             modifier = Modifier.width(36.dp)
@@ -506,7 +519,7 @@ private fun TrackQueueItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = track.title,
-                color = if (isCurrent) NeedleRed else TextPrimary,
+                color = if (isCurrent) accent else TextPrimary,
                 fontSize = 19.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -525,7 +538,7 @@ private fun TrackQueueItem(
 
         Text(
             text = formattedDuration,
-            color = if (isCurrent) NeedleRed else TextSecondary,
+            color = if (isCurrent) accent else TextSecondary,
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium
         )
