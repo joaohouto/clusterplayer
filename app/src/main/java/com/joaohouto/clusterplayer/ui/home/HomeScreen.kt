@@ -289,7 +289,7 @@ private fun FullControlsBottomPlaybackBar(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(88.dp),
+            .height(126.dp),
         color = SurfaceCard,
         border = BorderStroke(1.dp, SurfaceCardBorder)
     ) {
@@ -310,7 +310,7 @@ private fun FullControlsBottomPlaybackBar(
             ) {
                 SquareAlbumArt(
                     uriOrPath = track.path.ifEmpty { track.uri },
-                    modifier = Modifier.size(66.dp)
+                    modifier = Modifier.size(100.dp)
                 )
 
                 Spacer(modifier = Modifier.width(14.dp))
@@ -322,7 +322,7 @@ private fun FullControlsBottomPlaybackBar(
                     Text(
                         text = track.title,
                         color = TextPrimary,
-                        fontSize = 17.sp,
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -331,7 +331,7 @@ private fun FullControlsBottomPlaybackBar(
                     Text(
                         text = track.artist,
                         color = TextSecondary,
-                        fontSize = 14.sp,
+                        fontSize = 16.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -350,8 +350,8 @@ private fun FullControlsBottomPlaybackBar(
                     onClick = onToggleShuffle,
                     icon = Icons.Rounded.Shuffle,
                     isActive = isShuffleEnabled,
-                    minSize = 48.dp,
-                    iconSize = 28.dp,
+                    minSize = 64.dp,
+                    iconSize = 32.dp,
                     contentDescription = stringResource(R.string.desc_shuffle)
                 )
 
@@ -359,8 +359,8 @@ private fun FullControlsBottomPlaybackBar(
                 MetallicButton(
                     onClick = onPrevious,
                     icon = Icons.Rounded.SkipPrevious,
-                    minSize = 48.dp,
-                    iconSize = 28.dp,
+                    minSize = 64.dp,
+                    iconSize = 32.dp,
                     contentDescription = stringResource(R.string.desc_previous)
                 )
 
@@ -369,7 +369,7 @@ private fun FullControlsBottomPlaybackBar(
                     onClick = onPlayPause,
                     style = MetallicButtonStyle.Accent,
                     icon = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    minSize = 54.dp,
+                    minSize = 64.dp,
                     iconSize = 32.dp,
                     contentDescription = if (isPlaying) stringResource(R.string.desc_pause) else stringResource(R.string.desc_play)
                 )
@@ -378,8 +378,8 @@ private fun FullControlsBottomPlaybackBar(
                 MetallicButton(
                     onClick = onNext,
                     icon = Icons.Rounded.SkipNext,
-                    minSize = 48.dp,
-                    iconSize = 28.dp,
+                    minSize = 64.dp,
+                    iconSize = 32.dp,
                     contentDescription = stringResource(R.string.desc_next)
                 )
 
@@ -394,8 +394,8 @@ private fun FullControlsBottomPlaybackBar(
                     onClick = onCycleRepeatMode,
                     icon = repeatIcon,
                     isActive = isRepeatActive,
-                    minSize = 48.dp,
-                    iconSize = 28.dp,
+                    minSize = 64.dp,
+                    iconSize = 32.dp,
                     contentDescription = stringResource(R.string.desc_repeat)
                 )
             }

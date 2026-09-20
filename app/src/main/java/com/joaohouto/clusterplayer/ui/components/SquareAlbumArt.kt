@@ -93,7 +93,7 @@ fun SquareAlbumArt(
                     imageVector = Icons.Rounded.MusicNote,
                     contentDescription = stringResource(R.string.desc_no_art),
                     tint = TextSecondary,
-                    modifier = Modifier.size(64.dp)
+                    modifier = Modifier.size(40.dp)
                 )
             }
         }
