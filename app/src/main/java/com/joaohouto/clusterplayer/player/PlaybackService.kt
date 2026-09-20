@@ -168,6 +168,7 @@ class PlaybackService : MediaSessionService() {
 
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(sessionActivityPendingIntent)
+            .setBitmapLoader(AudioArtBitmapLoader(this))
             .build()
 
         mediaSessionInstance = mediaSession

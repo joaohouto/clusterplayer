@@ -54,8 +54,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         playerController.initialize()
-        // Run initial scan if needed
-        repository.triggerScan()
     }
 
     fun playFolder(folderPath: String) {

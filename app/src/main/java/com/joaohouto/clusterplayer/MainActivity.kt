@@ -55,11 +55,8 @@ class MainActivity : ComponentActivity() {
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val granted = permissions.values.any { it }
-        if (granted) {
-            homeViewModel.rescan()
-        }
+    ) {
+        // Permissions handled; do not automatically scan storage
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -189,9 +186,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (isFinishing) {
-            PlayerController.getInstance(this).stop()
-        }
+        // Do not stop playback on activity destroy to allow background audio
     }
 }
 
@@ -202,11 +197,19 @@ fun ClusterApp(
     showLyrics: Boolean,
     onOpenSettings: () -> Unit
 ) {
-    val playbackState by playerViewModel.playbackState.collectAsState()
+    val activity = androidx.compose.ui.platform.LocalContext.current as? androidx.activity.ComponentActivity
     var userNavigatedScreen by remember { mutableStateOf<Screen?>(null) }
 
-    // If user has not explicitly navigated, show Player if music is ready/playing; otherwise show Folders (Home)
-    val currentScreen = userNavigatedScreen ?: if (playbackState.currentTrack != null) Screen.Player else Screen.Home
+    // Always start on Player screen (do not automatically open folder selector if no music is playing)
+    val currentScreen = userNavigatedScreen ?: Screen.Player
+
+    androidx.activity.compose.BackHandler(enabled = currentScreen == Screen.Home) {
+        userNavigatedScreen = Screen.Player
+    }
+
+    androidx.activity.compose.BackHandler(enabled = currentScreen == Screen.Player) {
+        activity?.moveTaskToBack(true)
+    }
 
     AnimatedContent(
         targetState = currentScreen,
