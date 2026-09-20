@@ -14,17 +14,22 @@ object AudioArtExtractor {
         override fun sizeOf(key: String, value: ByteArray): Int = value.size
     }
 
-    suspend fun getEmbeddedArt(context: Context, uriOrPath: String): ByteArray? = withContext(Dispatchers.IO) {
-        if (uriOrPath.isBlank()) return@withContext null
+    fun getCachedArt(uriOrPath: String): ByteArray? {
+        if (uriOrPath.isBlank()) return null
+        synchronized(artCache) {
+            return artCache.get(uriOrPath)
+        }
+    }
 
+    fun extractArtDirect(context: Context, uriOrPath: String): ByteArray? {
+        if (uriOrPath.isBlank()) return null
         synchronized(artCache) {
             val cached = artCache.get(uriOrPath)
-            if (cached != null) return@withContext cached
+            if (cached != null) return cached
         }
 
         val retriever = MediaMetadataRetriever()
         var picture: ByteArray? = null
-
         try {
             if (uriOrPath.startsWith("content://")) {
                 retriever.setDataSource(context, Uri.parse(uriOrPath))
@@ -40,14 +45,16 @@ object AudioArtExtractor {
                     artCache.put(uriOrPath, picture)
                 }
             }
-        } catch (ignored: Exception) {
-            // Some formats might not have art or throw on malformed ID3
+        } catch (_: Exception) {
         } finally {
             try {
                 retriever.release()
-            } catch (ignored: Exception) {}
+            } catch (_: Exception) {}
         }
+        return picture
+    }
 
-        picture
+    suspend fun getEmbeddedArt(context: Context, uriOrPath: String): ByteArray? = withContext(Dispatchers.IO) {
+        extractArtDirect(context, uriOrPath)
     }
 }

@@ -347,10 +347,9 @@
           </a>
 
           <a
-            href="https://github.com/joaohouto/clusterplayer/releases"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="https://github.com/joaohouto/clusterplayer/releases/latest/download/ClusterLauncher.apk"
             class="btn-launcher"
+            id="download-launcher-btn"
           >
             <svg
               width="18"
@@ -367,7 +366,7 @@
               <rect width="7" height="7" x="14" y="14" rx="1"/>
               <rect width="7" height="7" x="3" y="14" rx="1"/>
             </svg>
-            Baixar Launcher
+            <span id="download-launcher-text">Baixar Launcher APK</span>
           </a>
 
           <a
@@ -471,21 +470,33 @@
           })
           .then(function (data) {
             if (data && data.assets && data.assets.length > 0) {
-              var apk = data.assets.find(function (a) {
-                return a.name && a.name.endsWith(".apk");
+              // 1. Player APK
+              var playerApk = data.assets.find(function (a) {
+                var name = (a.name || "").toLowerCase();
+                return name.endsWith(".apk") && (name.includes("clusterplayer") || !name.includes("launcher"));
               });
-              if (apk && apk.browser_download_url) {
+              if (playerApk && playerApk.browser_download_url) {
                 var btn = document.getElementById("download-btn");
                 var text = document.getElementById("download-text");
-                if (btn) btn.href = apk.browser_download_url;
+                if (btn) btn.href = playerApk.browser_download_url;
                 if (text && data.tag_name) {
-                  text.textContent = "Baixar APK (" + data.tag_name + ")";
+                  text.textContent = "Baixar Player (" + data.tag_name + ")";
                 }
+              }
+
+              // 2. Launcher APK
+              var launcherApk = data.assets.find(function (a) {
+                var name = (a.name || "").toLowerCase();
+                return name.endsWith(".apk") && name.includes("launcher");
+              });
+              if (launcherApk && launcherApk.browser_download_url) {
+                var lBtn = document.getElementById("download-launcher-btn");
+                if (lBtn) lBtn.href = launcherApk.browser_download_url;
               }
             }
           })
           .catch(function () {
-            // Keep default href and label
+            // Keep default fallback hrefs
           });
       })();
     </script>

@@ -211,7 +211,8 @@ class PlaybackService : MediaSessionService() {
                 if (crossfadeSeconds > 0 && mediaItem != null) {
                     startFadeIn((crossfadeSeconds * 1000L).coerceIn(1000L, 3500L))
                 } else {
-                    player.volume = 1.0f
+                    currentFadeScale = 1.0f
+                    applyVolume()
                 }
             }
 
