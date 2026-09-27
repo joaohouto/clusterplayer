@@ -10,6 +10,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
@@ -20,6 +21,7 @@ import java.io.File
 import com.joaohouto.clusterplayer.data.repository.MusicRepository
 import com.joaohouto.clusterplayer.lyrics.LrcLine
 import com.joaohouto.clusterplayer.lyrics.LrcParser
+import com.joaohouto.clusterplayer.ui.components.AudioArtExtractor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -111,8 +113,34 @@ class PlayerController private constructor(private val context: Context) {
         }
     }
 
+    fun onDirectTrackTransition(mediaItem: MediaItem?) {
+        controllerScope.launch(Dispatchers.Main) {
+            loadCurrentTrackMetadata(mediaItem)
+            _currentPosition.value = 0L
+            updateStateFromController()
+        }
+    }
+
     private fun setupController(controller: MediaController) {
         controller.addListener(object : Player.Listener {
+            override fun onEvents(player: Player, events: Player.Events) {
+                if (events.containsAny(
+                        Player.EVENT_MEDIA_ITEM_TRANSITION,
+                        Player.EVENT_POSITION_DISCONTINUITY,
+                        Player.EVENT_TIMELINE_CHANGED,
+                        Player.EVENT_PLAYBACK_STATE_CHANGED,
+                        Player.EVENT_IS_PLAYING_CHANGED
+                    )
+                ) {
+                    val currentItem = player.currentMediaItem
+                    if (currentItem != null && currentItem.mediaId != _uiState.value.currentTrack?.uri) {
+                        loadCurrentTrackMetadata(currentItem)
+                        _currentPosition.value = 0L
+                    }
+                    updateStateFromController()
+                }
+            }
+
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 updateStateFromController()
                 if (isPlaying) {
@@ -133,6 +161,24 @@ class PlayerController private constructor(private val context: Context) {
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 loadCurrentTrackMetadata(mediaItem)
+                _currentPosition.value = 0L
+                updateStateFromController()
+            }
+
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int
+            ) {
+                val currentItem = controller.currentMediaItem
+                if (currentItem != null && currentItem.mediaId != _uiState.value.currentTrack?.uri) {
+                    loadCurrentTrackMetadata(currentItem)
+                    _currentPosition.value = 0L
+                }
+                updateStateFromController()
+            }
+
+            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
                 updateStateFromController()
             }
 
@@ -160,12 +206,30 @@ class PlayerController private constructor(private val context: Context) {
 
         val mediaId = mediaItem.mediaId
         val extras = mediaItem.mediaMetadata.extras
-        val filePath = extras?.getString("filePath") ?: ""
+        var filePath = extras?.getString("filePath") ?: ""
         val folderPath = extras?.getString("folderPath") ?: ""
-        val title = mediaItem.mediaMetadata.title?.toString() ?: "Desconhecido"
-        val artist = mediaItem.mediaMetadata.artist?.toString() ?: "Artista Desconhecido"
-        val album = mediaItem.mediaMetadata.albumTitle?.toString() ?: "Álbum Desconhecido"
+        var title = mediaItem.mediaMetadata.title?.toString() ?: ""
+        var artist = mediaItem.mediaMetadata.artist?.toString() ?: ""
+        var album = mediaItem.mediaMetadata.albumTitle?.toString() ?: ""
         val durationMs = extras?.getLong("durationMs") ?: 0L
+
+        if (filePath.isEmpty() && mediaId.isNotEmpty()) {
+            if (mediaId.startsWith("file://")) {
+                filePath = Uri.parse(mediaId).path ?: mediaId
+            } else if (mediaId.startsWith("/")) {
+                filePath = mediaId
+            }
+        }
+
+        if (title.isBlank() || title == "Desconhecido") {
+            title = if (filePath.isNotEmpty()) {
+                File(filePath).nameWithoutExtension
+            } else {
+                "Desconhecido"
+            }
+        }
+        if (artist.isBlank()) artist = "Artista Desconhecido"
+        if (album.isBlank()) album = "Álbum Desconhecido"
 
         val track = Track(
             id = 0,
@@ -183,11 +247,19 @@ class PlayerController private constructor(private val context: Context) {
             currentLyricsLine = null
         )
 
+        // Pré-carrega a capa do álbum diretamente no cache de memória para exibição em 0ms
+        val artPath = if (filePath.isNotEmpty()) filePath else mediaId
+        if (artPath.isNotEmpty()) {
+            controllerScope.launch(Dispatchers.IO) {
+                AudioArtExtractor.extractArtDirect(context, artPath)
+            }
+        }
+
         // Load lyrics asynchronously if .lrc exists
         controllerScope.launch {
             if (filePath.isNotEmpty()) {
                 lyricsLines = LrcParser.findAndParseLrc(filePath)
-                updateLyricsLine(_uiState.value.currentPositionMs)
+                updateLyricsLine(_currentPosition.value)
             } else {
                 lyricsLines = null
             }
@@ -196,7 +268,10 @@ class PlayerController private constructor(private val context: Context) {
 
     private fun updateStateFromController() {
         val controller = mediaController ?: return
-        val duration = if (controller.duration > 0) controller.duration else _uiState.value.currentTrack?.durationMs ?: 0L
+        val playerDuration = if (controller.duration > 0) controller.duration else {
+            PlaybackService.getMediaSessionInstance()?.player?.duration?.takeIf { it > 0 } ?: 0L
+        }
+        val duration = if (playerDuration > 0) playerDuration else _uiState.value.currentTrack?.durationMs ?: 0L
         val currentPos = controller.currentPosition.coerceAtLeast(0L)
 
         _currentPosition.value = currentPos
@@ -226,12 +301,29 @@ class PlayerController private constructor(private val context: Context) {
         stopPositionTicker()
         positionTickerJob = controllerScope.launch {
             while (isActive) {
-                delay(250)
+                delay(200)
                 val controller = mediaController
                 if (controller != null && controller.isPlaying) {
-                    val pos = controller.currentPosition.coerceAtLeast(0L)
-                    _currentPosition.value = pos
-                    updateLyricsLine(pos)
+                    val currentItem = controller.currentMediaItem
+                    // Se o item mudou (ex: transição gapless ou automática), sincroniza imediatamente os metadados!
+                    if (currentItem != null && currentItem.mediaId != _uiState.value.currentTrack?.uri) {
+                        loadCurrentTrackMetadata(currentItem)
+                        _currentPosition.value = 0L
+                        updateStateFromController()
+                    } else {
+                        val pos = controller.currentPosition.coerceAtLeast(0L)
+                        _currentPosition.value = pos
+
+                        // Atualiza dinamicamente a duração precisa caso demuxer tenha finalizado
+                        val pDuration = if (controller.duration > 0) controller.duration else {
+                            PlaybackService.getMediaSessionInstance()?.player?.duration?.takeIf { it > 0 } ?: 0L
+                        }
+                        if (pDuration > 0 && pDuration != _uiState.value.durationMs) {
+                            _uiState.value = _uiState.value.copy(durationMs = pDuration)
+                        }
+
+                        updateLyricsLine(pos)
+                    }
                 }
             }
         }
@@ -322,14 +414,6 @@ class PlayerController private constructor(private val context: Context) {
 
     fun playFolder(folderPath: String, startIndex: Int = 0) {
         controllerScope.launch {
-            val folderFile = File(folderPath)
-            if (folderPath.isNotEmpty() && !folderPath.startsWith("content://") && !folderFile.exists()) {
-                Log.w(TAG, "Folder does not exist on disk: $folderPath")
-                repository.deleteFolderAndTracks(folderPath)
-                showCannotPlayToast()
-                return@launch
-            }
-
             val tracks = repository.getTracksForFolderSync(folderPath)
             if (tracks.isEmpty()) {
                 showCannotPlayToast()
@@ -337,12 +421,11 @@ class PlayerController private constructor(private val context: Context) {
             }
 
             val validTracks = tracks.filter { track ->
-                track.path.isEmpty() || File(track.path).exists()
+                track.uri.startsWith("content://") || track.path.isEmpty() || File(track.path).exists() || File(track.path).canRead()
             }
 
             if (validTracks.isEmpty()) {
-                Log.w(TAG, "All tracks in folder no longer exist on disk: $folderPath")
-                repository.deleteFolderAndTracks(folderPath)
+                Log.w(TAG, "No valid/readable tracks found in folder: $folderPath")
                 showCannotPlayToast()
                 return@launch
             }
@@ -366,7 +449,7 @@ class PlayerController private constructor(private val context: Context) {
         }
 
         val validTracks = tracks.filter { track ->
-            track.path.isEmpty() || File(track.path).exists()
+            track.uri.startsWith("content://") || track.path.isEmpty() || File(track.path).exists() || File(track.path).canRead()
         }
         if (validTracks.isEmpty()) {
             showCannotPlayToast()

@@ -208,11 +208,22 @@ class PlaybackService : MediaSessionService() {
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 saveCurrentStateImmediate()
+                PlayerController.getInstance(this@PlaybackService).onDirectTrackTransition(mediaItem)
                 if (crossfadeSeconds > 0 && mediaItem != null) {
                     startFadeIn((crossfadeSeconds * 1000L).coerceIn(1000L, 3500L))
                 } else {
                     currentFadeScale = 1.0f
                     applyVolume()
+                }
+            }
+
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int
+            ) {
+                if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) {
+                    PlayerController.getInstance(this@PlaybackService).onDirectTrackTransition(player.currentMediaItem)
                 }
             }
 

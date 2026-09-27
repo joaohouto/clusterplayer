@@ -12,8 +12,8 @@ android {
         applicationId = "com.joaohouto.clusterplayer"
         minSdk = 24
         targetSdk = 34
-        versionCode = 5
-        versionName = "1.1.2"
+        versionCode = 6
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -85,4 +85,21 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+project.afterEvaluate {
+    tasks.matching { it.name.startsWith("assemble") }.configureEach {
+        doLast {
+            val isRelease = name.contains("Release", ignoreCase = true)
+            val subfolder = if (isRelease) "release" else "debug"
+            val apkDir = layout.buildDirectory.dir("outputs/apk/$subfolder").orNull?.asFile ?: return@doLast
+            val defaultApk = File(apkDir, if (isRelease) "app-release.apk" else "app-debug.apk")
+            val targetApk = File(apkDir, if (isRelease) "ClusterPlayer-v${android.defaultConfig.versionName}.apk" else "ClusterPlayer-v${android.defaultConfig.versionName}-debug.apk")
+            if (defaultApk.exists()) {
+                defaultApk.copyTo(targetApk, overwrite = true)
+                defaultApk.copyTo(File(apkDir, if (isRelease) "ClusterPlayer.apk" else "ClusterPlayer-debug.apk"), overwrite = true)
+                println("APK generated: ${targetApk.name}")
+            }
+        }
+    }
 }

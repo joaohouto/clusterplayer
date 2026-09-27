@@ -68,6 +68,8 @@
     <string name="settings_lyrics_subtitle">Mostrar linhas .LRC acima do título da música</string>
     <string name="settings_autoplay_title">Tocar ao Iniciar o App</string>
     <string name="settings_autoplay_subtitle">Retoma a reprodução automaticamente ao abrir o app</string>
+    <string name="settings_fullscreen_title">Modo Tela Cheia</string>
+    <string name="settings_fullscreen_subtitle">Oculta a barra de status e botões de navegação</string>
 
     <!-- Theme Names -->
     <string name="theme_needle_red">Needle Red</string>

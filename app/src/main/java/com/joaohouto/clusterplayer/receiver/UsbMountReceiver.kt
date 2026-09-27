@@ -19,11 +19,13 @@ class UsbMountReceiver : BroadcastReceiver() {
 
         when (action) {
             Intent.ACTION_MEDIA_MOUNTED -> {
-                Log.i(TAG, "External storage mounted: $uri. Waiting for manual refresh by user.")
+                Log.i(TAG, "External storage mounted: $uri. Triggering background media scan.")
+                MusicRepository.getInstance(context).triggerScan(clearOld = false)
             }
             Intent.ACTION_MEDIA_UNMOUNTED,
             Intent.ACTION_MEDIA_EJECT -> {
-                Log.w(TAG, "External media unmounted or ejected: $uri.")
+                Log.w(TAG, "External media unmounted or ejected: $uri. Rescanning storage to prune missing paths.")
+                MusicRepository.getInstance(context).triggerScan(clearOld = true)
             }
         }
     }

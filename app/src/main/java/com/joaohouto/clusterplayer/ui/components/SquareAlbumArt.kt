@@ -42,11 +42,17 @@ fun SquareAlbumArt(
     onDoubleTap: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    var artBytes by remember(uriOrPath) { mutableStateOf<ByteArray?>(null) }
+    var artBytes by remember(uriOrPath) {
+        mutableStateOf<ByteArray?>(
+            if (!uriOrPath.isNullOrEmpty()) AudioArtExtractor.getCachedArt(uriOrPath) else null
+        )
+    }
 
     LaunchedEffect(uriOrPath) {
         if (!uriOrPath.isNullOrEmpty()) {
-            artBytes = AudioArtExtractor.getEmbeddedArt(context, uriOrPath)
+            if (artBytes == null) {
+                artBytes = AudioArtExtractor.getEmbeddedArt(context, uriOrPath)
+            }
         } else {
             artBytes = null
         }

@@ -235,7 +235,7 @@ fun PlayerScreen(
                 Text(
                     text = currentTrack?.title ?: stringResource(R.string.no_track_playing),
                     color = TextPrimary,
-                    fontSize = 30.sp,
+                    fontSize = 40.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -259,7 +259,7 @@ fun PlayerScreen(
                 Text(
                     text = artistAlbumText,
                     color = TextSecondary,
-                    fontSize = 20.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis

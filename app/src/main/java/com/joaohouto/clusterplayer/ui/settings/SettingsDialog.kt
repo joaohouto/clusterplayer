@@ -47,10 +47,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.joaohouto.clusterplayer.R
 import com.joaohouto.clusterplayer.ui.components.MetallicButton
 import com.joaohouto.clusterplayer.ui.theme.ALL_ACCENT_THEMES
@@ -75,6 +81,7 @@ fun SettingsDialog(
     isKeepScreenOn: Boolean,
     isShowLyrics: Boolean,
     isAutoplayOnStart: Boolean,
+    isFullScreen: Boolean = false,
     onSelectAccent: (String) -> Unit,
     onSelectCrossfade: (Int) -> Unit,
     onSelectAppVolume: (Int) -> Unit,
@@ -82,6 +89,7 @@ fun SettingsDialog(
     onToggleKeepScreenOn: (Boolean) -> Unit,
     onToggleShowLyrics: (Boolean) -> Unit,
     onToggleAutoplayOnStart: (Boolean) -> Unit,
+    onToggleFullScreen: (Boolean) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val accent = LocalClusterAccent.current
@@ -98,6 +106,20 @@ fun SettingsDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
+        SideEffect {
+            dialogWindow?.let { win ->
+                val insetsController = WindowCompat.getInsetsController(win, win.decorView)
+                if (isFullScreen) {
+                    insetsController.systemBarsBehavior =
+                        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    insetsController.hide(WindowInsetsCompat.Type.systemBars())
+                } else {
+                    insetsController.show(WindowInsetsCompat.Type.systemBars())
+                }
+            }
+        }
+
         Surface(
             modifier = Modifier
                 .widthIn(min = 520.dp, max = 680.dp)
@@ -563,6 +585,50 @@ fun SettingsDialog(
                         Switch(
                             checked = isAutoplayOnStart,
                             onCheckedChange = onToggleAutoplayOnStart,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = accent.primary,
+                                uncheckedThumbColor = TextSecondary,
+                                uncheckedTrackColor = MetallicIntermediate,
+                                uncheckedBorderColor = SurfaceCardBorder
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 8. Full Screen Mode (Modo Tela Cheia)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = SurfaceCard,
+                    border = BorderStroke(1.dp, SurfaceCardBorder)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_fullscreen_title),
+                                color = TextPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_fullscreen_subtitle),
+                                color = TextSecondary,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        Switch(
+                            checked = isFullScreen,
+                            onCheckedChange = onToggleFullScreen,
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
                                 checkedTrackColor = accent.primary,

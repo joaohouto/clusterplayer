@@ -21,6 +21,9 @@ interface FolderDao {
     @Query("DELETE FROM folders WHERE path = :path")
     suspend fun deleteFolder(path: String)
 
+    @Query("SELECT COUNT(*) FROM folders")
+    suspend fun getFolderCount(): Int
+
     @Query("DELETE FROM folders")
     suspend fun clearAll()
 }

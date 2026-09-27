@@ -33,12 +33,25 @@ import com.joaohouto.clusterplayer.ui.player.PlayerViewModel
 import com.joaohouto.clusterplayer.ui.theme.ClusterPlayerTheme
 import com.joaohouto.clusterplayer.ui.theme.DeepMetallicBackground
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Environment
+import android.provider.Settings
+import android.util.Log
+import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.joaohouto.clusterplayer.data.local.AppDatabase
 import com.joaohouto.clusterplayer.data.local.PreferencesDataStore
+import com.joaohouto.clusterplayer.data.repository.MusicRepository
 import com.joaohouto.clusterplayer.ui.settings.SettingsDialog
 import com.joaohouto.clusterplayer.ui.theme.getAccentThemeById
 
@@ -52,11 +65,31 @@ class MainActivity : ComponentActivity() {
     private val homeViewModel: HomeViewModel by viewModels()
     private val playerViewModel: PlayerViewModel by viewModels()
     private lateinit var preferencesDataStore: PreferencesDataStore
+    private var isFullScreenMode = false
+
+    private fun applyImmersiveMode(isFullScreen: Boolean) {
+        isFullScreenMode = isFullScreen
+        val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+        if (isFullScreen) {
+            insetsController.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            insetsController.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            insetsController.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            applyImmersiveMode(isFullScreenMode)
+        }
+    }
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
-        // Permissions handled; do not automatically scan storage
+        checkManageExternalStorageAndScan()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,10 +113,15 @@ class MainActivity : ComponentActivity() {
             val isKeepScreenOn by preferencesDataStore.keepScreenOnFlow.collectAsState(initial = true)
             val isShowLyrics by preferencesDataStore.showLyricsFlow.collectAsState(initial = true)
             val isAutoplayOnStart by preferencesDataStore.autoplayOnStartFlow.collectAsState(initial = true)
+            val isFullScreen by preferencesDataStore.fullScreenModeFlow.collectAsState(initial = false)
 
             val currentAccent = remember(accentThemeId) { getAccentThemeById(accentThemeId) }
             val coroutineScope = rememberCoroutineScope()
             var showSettingsDialog by remember { mutableStateOf(false) }
+
+            LaunchedEffect(isFullScreen) {
+                applyImmersiveMode(isFullScreen)
+            }
 
             LaunchedEffect(isKeepScreenOn) {
                 if (isKeepScreenOn) {
@@ -117,6 +155,7 @@ class MainActivity : ComponentActivity() {
                             isKeepScreenOn = isKeepScreenOn,
                             isShowLyrics = isShowLyrics,
                             isAutoplayOnStart = isAutoplayOnStart,
+                            isFullScreen = isFullScreen,
                             onSelectAccent = { newThemeId ->
                                 coroutineScope.launch {
                                     preferencesDataStore.saveAccentTheme(newThemeId)
@@ -152,6 +191,11 @@ class MainActivity : ComponentActivity() {
                                     preferencesDataStore.saveAutoplayOnStart(enabled)
                                 }
                             },
+                            onToggleFullScreen = { enabled ->
+                                coroutineScope.launch {
+                                    preferencesDataStore.saveFullScreenMode(enabled)
+                                }
+                            },
                             onDismiss = { showSettingsDialog = false }
                         )
                     }
@@ -181,7 +225,74 @@ class MainActivity : ComponentActivity() {
 
         if (permissions.isNotEmpty()) {
             requestPermissionLauncher.launch(permissions.toTypedArray())
+        } else {
+            checkManageExternalStorageAndScan()
         }
+    }
+
+    private fun checkManageExternalStorageAndScan() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    try {
+                        val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                        startActivity(intent)
+                    } catch (e2: Exception) {
+                        Log.w("MainActivity", "Cannot launch MANAGE_ALL_FILES_ACCESS_PERMISSION", e2)
+                    }
+                }
+            }
+        }
+        triggerScanIfEmpty()
+    }
+
+    private fun triggerScanIfEmpty() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val db = AppDatabase.getInstance(this@MainActivity)
+                if (db.folderDao().getFolderCount() == 0) {
+                    Log.d("MainActivity", "Database empty. Triggering initial media scan.")
+                    MusicRepository.getInstance(this@MainActivity).triggerScan(clearOld = false)
+                }
+            } catch (e: Exception) {
+                Log.w("MainActivity", "Error checking folder count", e)
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        triggerScanIfEmpty()
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_MEDIA_NEXT,
+                KeyEvent.KEYCODE_CHANNEL_UP -> {
+                    playerViewModel.next()
+                    return true
+                }
+                KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+                KeyEvent.KEYCODE_CHANNEL_DOWN -> {
+                    playerViewModel.previous()
+                    return true
+                }
+                KeyEvent.KEYCODE_MEDIA_PLAY,
+                KeyEvent.KEYCODE_MEDIA_PAUSE,
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                KeyEvent.KEYCODE_HEADSETHOOK -> {
+                    playerViewModel.playPause()
+                    return true
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onDestroy() {

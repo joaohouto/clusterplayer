@@ -52,7 +52,7 @@ fun ProgressBarSlider(
     val displayedElapsedMs = if (isDragging) {
         (dragFraction * validDuration).toLong()
     } else {
-        currentPositionMs
+        currentPositionMs.coerceIn(0L, validDuration)
     }
 
     val remainingMs = (validDuration - displayedElapsedMs).coerceAtLeast(0L)

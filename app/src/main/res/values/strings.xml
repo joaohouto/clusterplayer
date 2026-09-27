@@ -68,6 +68,8 @@
     <string name="settings_lyrics_subtitle">Display .LRC lines above track title</string>
     <string name="settings_autoplay_title">Autoplay on App Launch</string>
     <string name="settings_autoplay_subtitle">Automatically resume playback when opening the app</string>
+    <string name="settings_fullscreen_title">Full Screen Mode</string>
+    <string name="settings_fullscreen_subtitle">Hide status bar and system navigation buttons</string>
 
     <!-- Theme Names -->
     <string name="theme_needle_red">Needle Red</string>

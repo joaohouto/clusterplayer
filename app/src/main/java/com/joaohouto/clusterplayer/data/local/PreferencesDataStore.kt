@@ -39,6 +39,7 @@ class PreferencesDataStore(private val context: Context) {
         val KEY_KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val KEY_SHOW_LYRICS = booleanPreferencesKey("show_lyrics")
         val KEY_AUTOPLAY_ON_START = booleanPreferencesKey("autoplay_on_start")
+        val KEY_FULL_SCREEN_MODE = booleanPreferencesKey("full_screen_mode")
 
         @Volatile
         private var INSTANCE: PreferencesDataStore? = null
@@ -172,6 +173,16 @@ class PreferencesDataStore(private val context: Context) {
     suspend fun saveAutoplayOnStart(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[KEY_AUTOPLAY_ON_START] = enabled
+        }
+    }
+
+    val fullScreenModeFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_FULL_SCREEN_MODE] ?: false
+    }
+
+    suspend fun saveFullScreenMode(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_FULL_SCREEN_MODE] = enabled
         }
     }
 }
