@@ -67,6 +67,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var preferencesDataStore: PreferencesDataStore
     private var isFullScreenMode = false
 
+    @Suppress("DEPRECATION")
     private fun applyImmersiveMode(isFullScreen: Boolean) {
         isFullScreenMode = isFullScreen
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
@@ -74,8 +75,10 @@ class MainActivity : ComponentActivity() {
             insetsController.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             insetsController.hide(WindowInsetsCompat.Type.systemBars())
+            window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         } else {
             insetsController.show(WindowInsetsCompat.Type.systemBars())
+            window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         }
     }
 
@@ -112,6 +115,7 @@ class MainActivity : ComponentActivity() {
             val isLoudnessEnabled by preferencesDataStore.loudnessBoostFlow.collectAsState(initial = false)
             val isKeepScreenOn by preferencesDataStore.keepScreenOnFlow.collectAsState(initial = true)
             val isShowLyrics by preferencesDataStore.showLyricsFlow.collectAsState(initial = true)
+            val lyricsOffsetMs by preferencesDataStore.lyricsOffsetMsFlow.collectAsState(initial = 0)
             val isAutoplayOnStart by preferencesDataStore.autoplayOnStartFlow.collectAsState(initial = true)
             val isFullScreen by preferencesDataStore.fullScreenModeFlow.collectAsState(initial = false)
 
@@ -136,7 +140,9 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier
                         .fillMaxSize()
                         .background(DeepMetallicBackground)
-                        .safeDrawingPadding(),
+                        .then(
+                            if (isFullScreen) Modifier else Modifier.safeDrawingPadding()
+                        ),
                     color = DeepMetallicBackground
                 ) {
                     ClusterApp(
@@ -154,6 +160,7 @@ class MainActivity : ComponentActivity() {
                             isLoudnessEnabled = isLoudnessEnabled,
                             isKeepScreenOn = isKeepScreenOn,
                             isShowLyrics = isShowLyrics,
+                            currentLyricsOffsetMs = lyricsOffsetMs,
                             isAutoplayOnStart = isAutoplayOnStart,
                             isFullScreen = isFullScreen,
                             onSelectAccent = { newThemeId ->
@@ -184,6 +191,11 @@ class MainActivity : ComponentActivity() {
                             onToggleShowLyrics = { enabled ->
                                 coroutineScope.launch {
                                     preferencesDataStore.saveShowLyrics(enabled)
+                                }
+                            },
+                            onSelectLyricsOffset = { offset ->
+                                coroutineScope.launch {
+                                    preferencesDataStore.saveLyricsOffsetMs(offset)
                                 }
                             },
                             onToggleAutoplayOnStart = { enabled ->

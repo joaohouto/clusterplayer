@@ -1,8 +1,8 @@
 package com.joaohouto.clusterplayer.ui.components
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -23,18 +25,23 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.joaohouto.clusterplayer.ui.theme.LocalClusterAccent
 import com.joaohouto.clusterplayer.ui.theme.TextSecondary
 import com.joaohouto.clusterplayer.ui.theme.TrackRail
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @Composable
 fun ProgressBarSlider(
     currentPositionMs: Long,
     durationMs: Long,
+    isPlaying: Boolean = false,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -43,16 +50,49 @@ fun ProgressBarSlider(
     val accentColor = LocalClusterAccent.current.primary
 
     val validDuration = if (durationMs > 0) durationMs else 1L
+
+    // Projeção em tempo real baseada em relógio monotônico:
+    // Garante movimento suave a 60fps sem sobrecarregar chamadas IPC do ExoPlayer
+    var anchorPositionMs by remember { mutableLongStateOf(currentPositionMs) }
+    var anchorRealtimeMs by remember { mutableLongStateOf(android.os.SystemClock.elapsedRealtime()) }
+    var livePositionMs by remember { mutableLongStateOf(currentPositionMs) }
+
+    LaunchedEffect(currentPositionMs) {
+        anchorPositionMs = currentPositionMs
+        anchorRealtimeMs = android.os.SystemClock.elapsedRealtime()
+        if (!isDragging) {
+            // Em reprodução contínua, evita micro-saltos de jitter de buffers menores que 400ms,
+            // permitindo que a projeção flua a 60fps sem oscilação
+            if (kotlin.math.abs(currentPositionMs - livePositionMs) > 400L || !isPlaying) {
+                livePositionMs = currentPositionMs
+            }
+        }
+    }
+
+    LaunchedEffect(isPlaying, validDuration) {
+        if (isPlaying) {
+            while (isActive) {
+                if (!isDragging) {
+                    val elapsed = android.os.SystemClock.elapsedRealtime() - anchorRealtimeMs
+                    livePositionMs = (anchorPositionMs + elapsed).coerceIn(0L, validDuration)
+                }
+                delay(16L) // Atualização fluida e contínua do trajeto visual
+            }
+        } else {
+            livePositionMs = anchorPositionMs
+        }
+    }
+
     val currentFraction = if (isDragging) {
         dragFraction
     } else {
-        (currentPositionMs.toFloat() / validDuration.toFloat()).coerceIn(0f, 1f)
+        (livePositionMs.toFloat() / validDuration.toFloat()).coerceIn(0f, 1f)
     }
 
     val displayedElapsedMs = if (isDragging) {
         (dragFraction * validDuration).toLong()
     } else {
-        currentPositionMs.coerceIn(0L, validDuration)
+        livePositionMs.coerceIn(0L, validDuration)
     }
 
     val remainingMs = (validDuration - displayedElapsedMs).coerceAtLeast(0L)
@@ -60,44 +100,56 @@ fun ProgressBarSlider(
     Column(
         modifier = modifier.fillMaxWidth()
     ) {
-        // Interactive Automotive Progress Rail
+        // Trilho Interativo Automotivo de Alta Precisão
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(36.dp) // Generous touch target for driver safety
+                .height(36.dp)
                 .pointerInput(validDuration) {
-                    detectTapGestures { offset ->
-                        val newFraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                        val targetMs = (newFraction * validDuration).toLong()
-                        onSeek(targetMs)
-                    }
-                }
-                .pointerInput(validDuration) {
-                    detectHorizontalDragGestures(
-                        onDragStart = { offset ->
+                    awaitEachGesture {
+                        try {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val thumbRadius = 8.dp.toPx()
+                            val usableWidth = (size.width - 2 * thumbRadius).coerceAtLeast(1f)
+                            val initialFraction = ((down.position.x - thumbRadius) / usableWidth).coerceIn(0f, 1f)
+
                             isDragging = true
-                            dragFraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                        },
-                        onDragEnd = {
+                            dragFraction = initialFraction
+
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (change.changedToUp()) {
+                                    change.consume()
+                                    break
+                                }
+                                if (change.positionChange() != Offset.Zero) {
+                                    change.consume()
+                                    val newFraction = ((change.position.x - thumbRadius) / usableWidth).coerceIn(0f, 1f)
+                                    dragFraction = newFraction
+                                }
+                            }
+
                             val targetMs = (dragFraction * validDuration).toLong()
+                            // Ancora imediatamente para evitar qualquer snap-back
+                            anchorPositionMs = targetMs
+                            anchorRealtimeMs = android.os.SystemClock.elapsedRealtime()
+                            livePositionMs = targetMs
                             onSeek(targetMs)
+                        } finally {
                             isDragging = false
-                        },
-                        onDragCancel = {
-                            isDragging = false
-                        },
-                        onHorizontalDrag = { change, _ ->
-                            dragFraction = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
                         }
-                    )
+                    }
                 }
         ) {
             val railHeight = 6.dp.toPx()
             val centerY = size.height / 2f
             val topY = centerY - (railHeight / 2f)
             val cornerRadius = CornerRadius(railHeight / 2f, railHeight / 2f)
+            val thumbRadius = if (isDragging) 8.dp.toPx() else 6.dp.toPx()
+            val usableWidth = (size.width - 2 * thumbRadius).coerceAtLeast(0f)
 
-            // Background Rail: dark metallic gray #262930
+            // Fundo do trilho metálico escuro #262930
             drawRoundRect(
                 color = TrackRail,
                 topLeft = Offset(0f, topY),
@@ -105,28 +157,29 @@ fun ProgressBarSlider(
                 cornerRadius = cornerRadius
             )
 
-            // Progress Fill with dynamic accent
-            val fillWidth = size.width * currentFraction
-            if (fillWidth > 0) {
+            // Posição central exata da agulha no trilho útil
+            val thumbCenterX = thumbRadius + (usableWidth * currentFraction)
+
+            // Preenchimento de progresso com o tema de iluminação dinâmica até o centro da agulha
+            if (thumbCenterX > 0f) {
                 drawRoundRect(
                     color = accentColor,
                     topLeft = Offset(0f, topY),
-                    size = Size(fillWidth, railHeight),
+                    size = Size(thumbCenterX, railHeight),
                     cornerRadius = cornerRadius
                 )
             }
 
-            // Needle thumb indicator
-            val thumbRadius = if (isDragging) 8.dp.toPx() else 6.dp.toPx()
+            // Indicador de agulha (agulha luminosa externa branca e miolo de destaque)
             drawCircle(
                 color = Color.White,
                 radius = thumbRadius,
-                center = Offset(fillWidth.coerceIn(thumbRadius, size.width - thumbRadius), centerY)
+                center = Offset(thumbCenterX, centerY)
             )
             drawCircle(
                 color = accentColor,
                 radius = thumbRadius - 2.dp.toPx(),
-                center = Offset(fillWidth.coerceIn(thumbRadius, size.width - thumbRadius), centerY)
+                center = Offset(thumbCenterX, centerY)
             )
         }
 

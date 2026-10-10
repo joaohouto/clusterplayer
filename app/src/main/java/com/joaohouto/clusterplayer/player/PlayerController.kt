@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.MoreExecutors
 import com.joaohouto.clusterplayer.R
 import com.joaohouto.clusterplayer.data.model.Track
 import java.io.File
+import com.joaohouto.clusterplayer.data.local.PreferencesDataStore
 import com.joaohouto.clusterplayer.data.repository.MusicRepository
 import com.joaohouto.clusterplayer.lyrics.LrcLine
 import com.joaohouto.clusterplayer.lyrics.LrcParser
@@ -28,8 +29,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -73,8 +76,34 @@ class PlayerController private constructor(private val context: Context) {
 
     private var positionTickerJob: Job? = null
     private var lyricsLines: List<LrcLine>? = null
+    private var lastSeekTimestamp = 0L
+    private var lastSeekTargetMs = -1L
 
     private val repository = MusicRepository.getInstance(context)
+    private val preferencesDataStore = PreferencesDataStore.getInstance(context)
+    private var userLyricsOffsetMs: Long = 0L
+
+    val lyricsOffsetMs: StateFlow<Int> = preferencesDataStore.lyricsOffsetMsFlow
+        .stateIn(
+            scope = controllerScope,
+            started = SharingStarted.Eagerly,
+            initialValue = 0
+        )
+
+    init {
+        controllerScope.launch {
+            preferencesDataStore.lyricsOffsetMsFlow.collect { offset: Int ->
+                userLyricsOffsetMs = offset.toLong()
+                updateLyricsLine(_currentPosition.value)
+            }
+        }
+    }
+
+    fun setLyricsOffset(offsetMs: Int) {
+        controllerScope.launch {
+            preferencesDataStore.saveLyricsOffsetMs(offsetMs)
+        }
+    }
 
     fun initialize() {
         if (mediaController != null || controllerFuture != null) return
@@ -160,6 +189,8 @@ class PlayerController private constructor(private val context: Context) {
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                lastSeekTimestamp = 0L
+                lastSeekTargetMs = -1L
                 loadCurrentTrackMetadata(mediaItem)
                 _currentPosition.value = 0L
                 updateStateFromController()
@@ -172,10 +203,24 @@ class PlayerController private constructor(private val context: Context) {
             ) {
                 val currentItem = controller.currentMediaItem
                 if (currentItem != null && currentItem.mediaId != _uiState.value.currentTrack?.uri) {
+                    lastSeekTimestamp = 0L
+                    lastSeekTargetMs = -1L
                     loadCurrentTrackMetadata(currentItem)
                     _currentPosition.value = 0L
+                    updateStateFromController()
+                } else {
+                    val pos = newPosition.positionMs.coerceAtLeast(0L)
+                    lastSeekTimestamp = 0L
+                    lastSeekTargetMs = -1L
+                    _currentPosition.value = pos
+                    val duration = if (controller.duration > 0) controller.duration else _uiState.value.durationMs
+                    _uiState.value = _uiState.value.copy(
+                        isPlaying = controller.isPlaying,
+                        currentPositionMs = pos,
+                        durationMs = duration
+                    )
+                    updateLyricsLine(pos)
                 }
-                updateStateFromController()
             }
 
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
@@ -246,6 +291,7 @@ class PlayerController private constructor(private val context: Context) {
             currentTrack = track,
             currentLyricsLine = null
         )
+        lyricsLines = null
 
         // Pré-carrega a capa do álbum diretamente no cache de memória para exibição em 0ms
         val artPath = if (filePath.isNotEmpty()) filePath else mediaId
@@ -257,12 +303,43 @@ class PlayerController private constructor(private val context: Context) {
 
         // Load lyrics asynchronously if .lrc exists
         controllerScope.launch {
-            if (filePath.isNotEmpty()) {
-                lyricsLines = LrcParser.findAndParseLrc(filePath)
-                updateLyricsLine(_currentPosition.value)
-            } else {
-                lyricsLines = null
+            var targetPath = filePath
+            if (targetPath.isEmpty() && mediaId.isNotEmpty() && mediaId.startsWith("content://")) {
+                val dbTrack = repository.getTrackByUri(mediaId)
+                if (dbTrack != null && dbTrack.path.isNotEmpty()) {
+                    targetPath = dbTrack.path
+                }
             }
+
+            val loadedLines = if (targetPath.isNotEmpty()) {
+                LrcParser.findAndParseLrc(targetPath)
+            } else {
+                null
+            }
+
+            // Only apply if the track has not changed during async loading
+            if (_uiState.value.currentTrack?.uri == mediaId) {
+                lyricsLines = loadedLines
+                updateLyricsLine(_currentPosition.value)
+            }
+        }
+    }
+
+    private fun getSanitizedPosition(controller: MediaController): Long {
+        val now = android.os.SystemClock.elapsedRealtime()
+        val isSeekingDebounced = (now - lastSeekTimestamp) < 800L
+        val directPlayer = PlaybackService.getMediaSessionInstance()?.player
+        val rawPos = (directPlayer?.currentPosition ?: controller.currentPosition).coerceAtLeast(0L)
+        return if (isSeekingDebounced && lastSeekTargetMs >= 0L) {
+            if (kotlin.math.abs(rawPos - lastSeekTargetMs) < 1500L) {
+                lastSeekTimestamp = 0L
+                lastSeekTargetMs = -1L
+                rawPos
+            } else {
+                lastSeekTargetMs
+            }
+        } else {
+            rawPos
         }
     }
 
@@ -272,7 +349,7 @@ class PlayerController private constructor(private val context: Context) {
             PlaybackService.getMediaSessionInstance()?.player?.duration?.takeIf { it > 0 } ?: 0L
         }
         val duration = if (playerDuration > 0) playerDuration else _uiState.value.currentTrack?.durationMs ?: 0L
-        val currentPos = controller.currentPosition.coerceAtLeast(0L)
+        val currentPos = getSanitizedPosition(controller)
 
         _currentPosition.value = currentPos
         _uiState.value = _uiState.value.copy(
@@ -288,7 +365,8 @@ class PlayerController private constructor(private val context: Context) {
     private fun updateLyricsLine(positionMs: Long) {
         val lines = lyricsLines
         if (!lines.isNullOrEmpty()) {
-            val active = LrcParser.getActiveLine(lines, positionMs)
+            val adjustedPosition = (positionMs + userLyricsOffsetMs).coerceAtLeast(0L)
+            val active = LrcParser.getActiveLine(lines, adjustedPosition)
             if (active != _uiState.value.currentLyricsLine) {
                 _uiState.value = _uiState.value.copy(currentLyricsLine = active)
             }
@@ -301,17 +379,19 @@ class PlayerController private constructor(private val context: Context) {
         stopPositionTicker()
         positionTickerJob = controllerScope.launch {
             while (isActive) {
-                delay(200)
+                delay(50) // Alta precisão (20fps) para sincronização perfeita de áudio e letra
                 val controller = mediaController
                 if (controller != null && controller.isPlaying) {
                     val currentItem = controller.currentMediaItem
                     // Se o item mudou (ex: transição gapless ou automática), sincroniza imediatamente os metadados!
                     if (currentItem != null && currentItem.mediaId != _uiState.value.currentTrack?.uri) {
+                        lastSeekTimestamp = 0L
+                        lastSeekTargetMs = -1L
                         loadCurrentTrackMetadata(currentItem)
                         _currentPosition.value = 0L
                         updateStateFromController()
                     } else {
-                        val pos = controller.currentPosition.coerceAtLeast(0L)
+                        val pos = getSanitizedPosition(controller)
                         _currentPosition.value = pos
 
                         // Atualiza dinamicamente a duração precisa caso demuxer tenha finalizado
@@ -362,6 +442,8 @@ class PlayerController private constructor(private val context: Context) {
 
     fun seekTo(positionMs: Long) {
         val controller = mediaController ?: return
+        lastSeekTimestamp = android.os.SystemClock.elapsedRealtime()
+        lastSeekTargetMs = positionMs
         controller.seekTo(positionMs)
         _currentPosition.value = positionMs
         _uiState.value = _uiState.value.copy(currentPositionMs = positionMs)

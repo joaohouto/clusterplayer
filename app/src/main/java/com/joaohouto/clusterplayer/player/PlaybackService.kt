@@ -49,6 +49,7 @@ class PlaybackService : MediaSessionService() {
     private lateinit var preferencesDataStore: PreferencesDataStore
     private lateinit var repository: MusicRepository
     private lateinit var audioEffectsManager: AudioEffectsManager
+    private lateinit var volumeNormalizer: VolumeNormalizerAudioProcessor
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var positionSavingJob: Job? = null
@@ -74,6 +75,7 @@ class PlaybackService : MediaSessionService() {
         preferencesDataStore = PreferencesDataStore.getInstance(this)
         repository = MusicRepository.getInstance(this)
         audioEffectsManager = AudioEffectsManager()
+        volumeNormalizer = VolumeNormalizerAudioProcessor()
 
         setupNotificationChannel()
         setupNotificationProvider()
@@ -105,8 +107,8 @@ class PlaybackService : MediaSessionService() {
 
         serviceScope.launch {
             preferencesDataStore.loudnessBoostFlow.collect { enabled ->
-                audioEffectsManager.setLoudnessEnabled(enabled)
-                Log.d(TAG, "Loudness boost updated: $enabled")
+                volumeNormalizer.isNormalizerEnabled = enabled
+                Log.d(TAG, "Volume normalizer updated: enabled=$enabled")
             }
         }
 
@@ -142,12 +144,26 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun initializePlayer() {
+        val renderersFactory = object : androidx.media3.exoplayer.DefaultRenderersFactory(this) {
+            override fun buildAudioSink(
+                context: android.content.Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean
+            ): androidx.media3.exoplayer.audio.AudioSink {
+                return androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
+                    .setAudioProcessors(arrayOf(volumeNormalizer))
+                    .setEnableFloatOutput(false)
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .build()
+            }
+        }
+
         val audioAttributes = AudioAttributes.Builder()
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .setUsage(C.USAGE_MEDIA)
             .build()
 
-        player = ExoPlayer.Builder(this)
+        player = ExoPlayer.Builder(this, renderersFactory)
             .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
             .setHandleAudioBecomingNoisy(true)
             .build()
@@ -208,12 +224,26 @@ class PlaybackService : MediaSessionService() {
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 saveCurrentStateImmediate()
+                volumeNormalizer.resetTrackGain()
                 PlayerController.getInstance(this@PlaybackService).onDirectTrackTransition(mediaItem)
                 if (crossfadeSeconds > 0 && mediaItem != null) {
                     startFadeIn((crossfadeSeconds * 1000L).coerceIn(1000L, 3500L))
                 } else {
                     currentFadeScale = 1.0f
                     applyVolume()
+                }
+            }
+
+            override fun onMetadata(metadata: androidx.media3.common.Metadata) {
+                for (i in 0 until metadata.length()) {
+                    val entryText = metadata.get(i).toString()
+                    if (entryText.contains("REPLAYGAIN_TRACK_GAIN", ignoreCase = true)) {
+                        val match = Regex("""([+-]?\d+(?:\.\d+)?)\s*dB""").find(entryText)
+                        match?.groupValues?.get(1)?.toFloatOrNull()?.let { gainDb ->
+                            volumeNormalizer.setTrackReplayGain(gainDb)
+                            Log.d(TAG, "ReplayGain track gain applied from metadata: $gainDb dB")
+                        }
+                    }
                 }
             }
 

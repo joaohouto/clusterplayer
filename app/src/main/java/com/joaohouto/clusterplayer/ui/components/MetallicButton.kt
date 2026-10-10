@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -60,6 +61,7 @@ fun MetallicButton(
     minSize: Dp = 60.dp,
     iconSize: Dp = 28.dp,
     textSize: TextUnit = 16.sp,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
     contentDescription: String? = null
 ) {
     val accent = LocalClusterAccent.current
@@ -90,7 +92,7 @@ fun MetallicButton(
 
     val contentColor = when {
         isActive -> accent.primary
-        style == MetallicButtonStyle.Accent -> TextPrimary
+        style == MetallicButtonStyle.Accent -> accent.onAccent
         else -> TextPrimary
     }
 
@@ -100,7 +102,7 @@ fun MetallicButton(
             .clip(ButtonShape)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = rememberRipple(color = if (style == MetallicButtonStyle.Accent) Color.White else accent.primary),
+                indication = rememberRipple(color = if (style == MetallicButtonStyle.Accent) accent.onAccent else accent.primary),
                 onClick = onClick
             ),
         shape = ButtonShape,
@@ -111,7 +113,7 @@ fun MetallicButton(
             modifier = Modifier
                 .background(backgroundBrush)
                 .defaultMinSize(minWidth = minSize, minHeight = minSize)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(contentPadding),
             contentAlignment = Alignment.Center
         ) {
             Row(

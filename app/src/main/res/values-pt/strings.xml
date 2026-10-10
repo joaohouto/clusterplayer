@@ -32,6 +32,8 @@
     <string name="desc_pause">Pausar</string>
     <string name="desc_next">Próxima Faixa</string>
     <string name="desc_repeat">Modo Repetir</string>
+    <string name="desc_volume_down">Diminuir Volume</string>
+    <string name="desc_volume_up">Aumentar Volume</string>
     <string name="desc_album_art">Capa do Álbum</string>
     <string name="desc_no_art">Sem Capa</string>
     <string name="desc_refresh">Atualizar pastas</string>
@@ -60,8 +62,8 @@
     <string name="settings_volume_title">Volume Geral do App</string>
     <string name="settings_volume_subtitle">Atenuar saída de áudio para casar com a multimídia</string>
     <string name="settings_volume_percent">%1$d%%</string>
-    <string name="settings_loudness_title">Reforço Dinâmico (Loudness)</string>
-    <string name="settings_loudness_subtitle">Realce de graves e agudos (+2.5 dB)</string>
+    <string name="settings_loudness_title">Normalização de Volume</string>
+    <string name="settings_loudness_subtitle">Nivelar músicas automaticamente no mesmo volume</string>
     <string name="settings_screen_on_title">Manter Tela Ligada</string>
     <string name="settings_screen_on_subtitle">Impede que a tela apague durante a condução</string>
     <string name="settings_lyrics_title">Exibir Letras Sincronizadas</string>
@@ -79,4 +81,12 @@
     <string name="theme_sunset_orange">Sunset Orange</string>
     <string name="theme_electric_cyan">Electric Cyan</string>
     <string name="theme_pure_silver">Pure Silver</string>
+
+    <!-- Settings Tabs & Additional Strings -->
+    <string name="tab_audio">Áudio</string>
+    <string name="tab_lyrics">Letras</string>
+    <string name="tab_appearance">Aparência</string>
+    <string name="settings_lyrics_sync_title">Sincronização de Letras</string>
+    <string name="settings_lyrics_sync_subtitle">Calibre o tempo caso o áudio via Bluetooth ou som do carro tenha atraso</string>
+    <string name="settings_lyrics_lrc_info">Letras sincronizadas são carregadas de arquivos .lrc com o mesmo nome da música na mesma pasta ou na subpasta Lyrics.</string>
 </resources>

@@ -1,10 +1,16 @@
 package com.joaohouto.clusterplayer.ui.player
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -25,6 +31,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.automirrored.rounded.VolumeDown
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -113,44 +121,41 @@ fun PlayerScreen(
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Linha Superior: Logo/Título e Botões de navegação ("Voltar" e "Músicas da Pasta")
+        // Linha Superior: Fileira de botões no topo (Selecionar pasta à esquerda; Fila e Ajustes à direita)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 4.dp),
+                .padding(bottom = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = stringResource(R.string.header_cluster_player),
-                color = TextSecondary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp
+            // Lado Esquerdo: Navegação de Pastas ("Selecionar pasta")
+            MetallicButton(
+                onClick = onNavigateToHome,
+                icon = Icons.Rounded.Folder,
+                text = stringResource(R.string.header_folders_playlists),
+                minSize = 72.dp,
+                iconSize = 32.dp,
+                textSize = 16.sp,
+                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+                contentDescription = stringResource(R.string.desc_back)
             )
 
+            // Lado Direito: Fila de Reprodução e Configurações
             Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-
-                // Botão para abrir listagem de músicas da pasta que está tocando atualmente (Fila de reprodução)
+                // Fila de reprodução (Músicas da pasta atual)
                 MetallicButton(
                     onClick = { showTracksDialog = true },
                     icon = Icons.AutoMirrored.Rounded.QueueMusic,
                     text = stringResource(R.string.btn_folder_tracks),
                     minSize = 72.dp,
+                    iconSize = 32.dp,
                     textSize = 16.sp,
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
                     contentDescription = stringResource(R.string.desc_folder_tracks)
-                )
-
-                // Botão de Pastas (Voltar para a tela de Pastas / Playlists)
-                MetallicButton(
-                    onClick = onNavigateToHome,
-                    icon = Icons.Rounded.Folder,
-                    minSize = 72.dp,
-                    textSize = 16.sp,
-                    contentDescription = stringResource(R.string.desc_back)
                 )
 
                 // Botão de Configurações
@@ -158,9 +163,9 @@ fun PlayerScreen(
                     onClick = onOpenSettings,
                     icon = Icons.Rounded.Settings,
                     minSize = 72.dp,
+                    iconSize = 32.dp,
                     contentDescription = stringResource(R.string.desc_settings)
                 )
-
             }
         }
 
@@ -205,26 +210,34 @@ fun PlayerScreen(
                 ) {
                     val lyricsLine = state.currentLyricsLine
                     val accentColor = LocalClusterAccent.current.primary
-                    if (showLyrics && !lyricsLine.isNullOrBlank()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.GraphicEq,
-                                contentDescription = null,
-                                tint = accentColor,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = lyricsLine,
-                                color = accentColor,
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                    AnimatedContent(
+                        targetState = if (showLyrics) lyricsLine else null,
+                        transitionSpec = {
+                            fadeIn(animationSpec = tween(180)) togetherWith fadeOut(animationSpec = tween(150))
+                        },
+                        label = "LyricsTransition"
+                    ) { activeText ->
+                        if (!activeText.isNullOrBlank()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.GraphicEq,
+                                    contentDescription = null,
+                                    tint = accentColor,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = activeText,
+                                    color = accentColor,
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
@@ -246,7 +259,7 @@ fun PlayerScreen(
                 // Artista / Álbum (com tamanho aumentado)
                 val unknownAlbumStr = stringResource(R.string.unknown_album)
                 val artistAlbumText = buildString {
-                    append(currentTrack?.artist ?: stringResource(R.string.select_folder_to_play))
+                    append(currentTrack?.artist ?: stringResource(  R.string.select_folder_to_play))
                     if (!currentTrack?.album.isNullOrBlank() &&
                         currentTrack?.album != unknownAlbumStr &&
                         currentTrack?.album != "Álbum Desconhecido" &&
@@ -267,10 +280,11 @@ fun PlayerScreen(
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                // Barra de Progresso com StateFlow de posição isolado (evita recomposição de tela a cada 250ms)
+                // Barra de Progresso com StateFlow de posição isolado e projeção fluida
                 TrackProgressSection(
                     viewModel = viewModel,
-                    durationMs = state.durationMs
+                    durationMs = state.durationMs,
+                    isPlaying = state.isPlaying
                 )
             }
         }
@@ -278,33 +292,46 @@ fun PlayerScreen(
         // Espaçamento entre a área central e os botões inferiores de controle
         Spacer(modifier = Modifier.height(12.dp))
 
-        // ÚLTIMA LINHA DO LAYOUT: Linha exclusiva com os botões de controle de reprodução RESPONSIVOS
+        // ÚLTIMA LINHA DO LAYOUT: Linha exclusiva com os botões de controle de reprodução com altura ampliada
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(100.dp)
-                .padding(top = 10.dp),
+                .height(124.dp)
+                .padding(top = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Shuffle (Aleatório)
+
+            // 6. Diminuir Volume (-) nas colunas finais
+            MetallicButton(
+                onClick = { viewModel.volumeDown() },
+                icon = Icons.AutoMirrored.Rounded.VolumeDown,
+                minSize = 64.dp,
+                iconSize = 38.dp,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                contentDescription = stringResource(R.string.desc_volume_down)
+            )
+
+            // 1. Shuffle (Aleatório)
             MetallicButton(
                 onClick = { viewModel.toggleShuffle() },
                 icon = Icons.Rounded.Shuffle,
                 isActive = state.isShuffleEnabled,
-                minSize = 56.dp,
-                iconSize = 40.dp,
+                minSize = 64.dp,
+                iconSize = 38.dp,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
                 contentDescription = stringResource(R.string.desc_shuffle)
             )
 
-            // Anterior (<)
+            // 3. Anterior (<)
             MetallicButton(
                 onClick = { viewModel.previous() },
                 icon = Icons.Rounded.SkipPrevious,
-                minSize = 56.dp,
+                minSize = 64.dp,
                 iconSize = 40.dp,
                 modifier = Modifier
                     .weight(1f)
@@ -312,24 +339,24 @@ fun PlayerScreen(
                 contentDescription = stringResource(R.string.desc_previous)
             )
 
-            // Play / Pause (|| / ▶) Centralizado em Destaque
+            // 4. Play / Pause (|| / ▶) Centralizado em Destaque
             MetallicButton(
                 onClick = { viewModel.playPause() },
                 style = MetallicButtonStyle.Accent,
                 icon = if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                minSize = 60.dp,
-                iconSize = 40.dp,
+                minSize = 78.dp,
+                iconSize = 48.dp,
                 modifier = Modifier
-                    .weight(1.25f)
+                    .weight(1.35f)
                     .fillMaxHeight(),
                 contentDescription = if (state.isPlaying) stringResource(R.string.desc_pause) else stringResource(R.string.desc_play)
             )
 
-            // Próximo (>)
+            // 5. Próximo (>)
             MetallicButton(
                 onClick = { viewModel.next() },
                 icon = Icons.Rounded.SkipNext,
-                minSize = 56.dp,
+                minSize = 64.dp,
                 iconSize = 40.dp,
                 modifier = Modifier
                     .weight(1f)
@@ -348,12 +375,24 @@ fun PlayerScreen(
                 onClick = { viewModel.cycleRepeatMode() },
                 icon = repeatIcon,
                 isActive = isRepeatActive,
-                minSize = 56.dp,
-                iconSize = 40.dp,
+                minSize = 64.dp,
+                iconSize = 38.dp,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
                 contentDescription = stringResource(R.string.desc_repeat)
+            )
+
+            // 7. Aumentar Volume (+) nas colunas finais
+            MetallicButton(
+                onClick = { viewModel.volumeUp() },
+                icon = Icons.AutoMirrored.Rounded.VolumeUp,
+                minSize = 64.dp,
+                iconSize = 38.dp,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                contentDescription = stringResource(R.string.desc_volume_up)
             )
         }
     }
@@ -564,12 +603,14 @@ private fun formatTrackDuration(durationMs: Long): String {
 private fun TrackProgressSection(
     viewModel: PlayerViewModel,
     durationMs: Long,
+    isPlaying: Boolean,
     modifier: Modifier = Modifier
 ) {
     val currentPositionMs by viewModel.currentPosition.collectAsState()
     ProgressBarSlider(
         currentPositionMs = currentPositionMs,
         durationMs = durationMs,
+        isPlaying = isPlaying,
         onSeek = { targetMs -> viewModel.seekTo(targetMs) },
         modifier = modifier
     )

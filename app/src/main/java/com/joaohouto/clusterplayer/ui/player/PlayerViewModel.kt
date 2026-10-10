@@ -94,4 +94,22 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     fun cycleRepeatMode() {
         playerController.cycleRepeatMode()
     }
+
+    fun volumeDown() {
+        val audioManager = getApplication<Application>().getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager
+        audioManager?.adjustStreamVolume(
+            android.media.AudioManager.STREAM_MUSIC,
+            android.media.AudioManager.ADJUST_LOWER,
+            android.media.AudioManager.FLAG_SHOW_UI
+        )
+    }
+
+    fun volumeUp() {
+        val audioManager = getApplication<Application>().getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager
+        audioManager?.adjustStreamVolume(
+            android.media.AudioManager.STREAM_MUSIC,
+            android.media.AudioManager.ADJUST_RAISE,
+            android.media.AudioManager.FLAG_SHOW_UI
+        )
+    }
 }

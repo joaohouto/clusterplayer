@@ -55,4 +55,88 @@ class LrcParserTest {
         assertEquals(0, lines.size)
         assertNull(LrcParser.getActiveLine(lines, 1000L))
     }
+
+    @Test
+    fun testMultipleTimestampsPerLine() {
+        val lrcFile = tempFolder.newFile("multi.lrc")
+        lrcFile.writeText(
+            """
+            [00:10.00][00:40.00]Refrão repetido
+            """.trimIndent()
+        )
+
+        val lines = LrcParser.parseLrcFile(lrcFile)
+        assertEquals(2, lines.size)
+        assertEquals(10000L, lines[0].timeMs)
+        assertEquals("Refrão repetido", lines[0].text)
+        assertEquals(40000L, lines[1].timeMs)
+        assertEquals("Refrão repetido", lines[1].text)
+
+        assertEquals("Refrão repetido", LrcParser.getActiveLine(lines, 15000L))
+        assertEquals("Refrão repetido", LrcParser.getActiveLine(lines, 42000L))
+    }
+
+    @Test
+    fun testOffsetHeaderTag() {
+        val lrcFile = tempFolder.newFile("offset.lrc")
+        lrcFile.writeText(
+            """
+            [ti:Test Title]
+            [offset:+500]
+            [00:10.00]Primeira linha
+            """.trimIndent()
+        )
+
+        val lines = LrcParser.parseLrcFile(lrcFile)
+        assertEquals(1, lines.size)
+        // With +500 offset, lyrics appear 500ms earlier (10000 - 500 = 9500ms)
+        assertEquals(9500L, lines[0].timeMs)
+        assertEquals("Primeira linha", lines[0].text)
+
+        assertNull(LrcParser.getActiveLine(lines, 9000L))
+        assertEquals("Primeira linha", LrcParser.getActiveLine(lines, 9600L))
+    }
+
+    @Test
+    fun testSilentGapLineClearsActiveLyrics() {
+        val lrcFile = tempFolder.newFile("silence.lrc")
+        lrcFile.writeText(
+            """
+            [00:10.00]Letra antes do solo
+            [00:15.00]
+            [00:40.00]Letra depois do solo
+            """.trimIndent()
+        )
+
+        val lines = LrcParser.parseLrcFile(lrcFile)
+        assertEquals(3, lines.size)
+
+        // During lyrics
+        assertEquals("Letra antes do solo", LrcParser.getActiveLine(lines, 12000L))
+        // During guitar solo (empty line timestamp reached)
+        assertNull(LrcParser.getActiveLine(lines, 20000L))
+        assertNull(LrcParser.getActiveLine(lines, 35000L))
+        // Next lyrics
+        assertEquals("Letra depois do solo", LrcParser.getActiveLine(lines, 41000L))
+    }
+
+    @Test
+    fun testDifferentTimestampSeparatorsAndKaraokeTags() {
+        val lrcFile = tempFolder.newFile("varied.lrc")
+        lrcFile.writeText(
+            """
+            [01:05:30]Separador dois pontos <01:05.40> limpo
+            [02:10,50]Separador vírgula
+            """.trimIndent()
+        )
+
+        val lines = LrcParser.parseLrcFile(lrcFile)
+        assertEquals(2, lines.size)
+
+        assertEquals(65300L, lines[0].timeMs)
+        assertEquals("Separador dois pontos limpo", lines[0].text)
+
+        assertEquals(130500L, lines[1].timeMs)
+        assertEquals("Separador vírgula", lines[1].text)
+    }
 }

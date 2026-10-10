@@ -38,6 +38,7 @@ class PreferencesDataStore(private val context: Context) {
         val KEY_LOUDNESS_BOOST = booleanPreferencesKey("loudness_boost")
         val KEY_KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val KEY_SHOW_LYRICS = booleanPreferencesKey("show_lyrics")
+        val KEY_LYRICS_OFFSET_MS = intPreferencesKey("lyrics_offset_ms")
         val KEY_AUTOPLAY_ON_START = booleanPreferencesKey("autoplay_on_start")
         val KEY_FULL_SCREEN_MODE = booleanPreferencesKey("full_screen_mode")
 
@@ -113,7 +114,7 @@ class PreferencesDataStore(private val context: Context) {
     }
 
     val loudnessBoostFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[KEY_LOUDNESS_BOOST] ?: false // Default: Disabled (0 dB unity gain)
+        prefs[KEY_LOUDNESS_BOOST] ?: true // Default: Enabled (Normalização de Volume ativada por padrão)
     }
 
     val keepScreenOnFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -122,6 +123,16 @@ class PreferencesDataStore(private val context: Context) {
 
     val showLyricsFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[KEY_SHOW_LYRICS] ?: true // Default: Show lyrics
+    }
+
+    val lyricsOffsetMsFlow: Flow<Int> = context.dataStore.data.map { prefs ->
+        prefs[KEY_LYRICS_OFFSET_MS] ?: 0 // Default: 0 ms
+    }
+
+    suspend fun saveLyricsOffsetMs(offsetMs: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_LYRICS_OFFSET_MS] = offsetMs.coerceIn(-5000, 5000)
+        }
     }
 
     val autoplayOnStartFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->

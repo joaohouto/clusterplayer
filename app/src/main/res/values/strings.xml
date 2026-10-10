@@ -32,6 +32,8 @@
     <string name="desc_pause">Pause</string>
     <string name="desc_next">Next Track</string>
     <string name="desc_repeat">Repeat Mode</string>
+    <string name="desc_volume_down">Decrease Volume</string>
+    <string name="desc_volume_up">Increase Volume</string>
     <string name="desc_album_art">Album Art</string>
     <string name="desc_no_art">No Album Art</string>
     <string name="desc_refresh">Refresh folders</string>
@@ -60,8 +62,8 @@
     <string name="settings_volume_title">Master App Volume</string>
     <string name="settings_volume_subtitle">Attenuate volume to match vehicle head unit</string>
     <string name="settings_volume_percent">%1$d%%</string>
-    <string name="settings_loudness_title">Loudness Equalizer Boost</string>
-    <string name="settings_loudness_subtitle">Boost low/high dynamics (+2.5 dB)</string>
+    <string name="settings_loudness_title">Volume Normalization</string>
+    <string name="settings_loudness_subtitle">Automatically level playback volume across all tracks</string>
     <string name="settings_screen_on_title">Keep Screen On</string>
     <string name="settings_screen_on_subtitle">Prevent screen from turning off while driving</string>
     <string name="settings_lyrics_title">Show Synchronized Lyrics</string>
@@ -79,4 +81,12 @@
     <string name="theme_sunset_orange">Sunset Orange</string>
     <string name="theme_electric_cyan">Electric Cyan</string>
     <string name="theme_pure_silver">Pure Silver</string>
+
+    <!-- Settings Tabs & Additional Strings -->
+    <string name="tab_audio">Audio</string>
+    <string name="tab_lyrics">Lyrics</string>
+    <string name="tab_appearance">Appearance</string>
+    <string name="settings_lyrics_sync_title">Lyrics Timing Offset</string>
+    <string name="settings_lyrics_sync_subtitle">Calibrate timing to compensate for Bluetooth or car audio latency</string>
+    <string name="settings_lyrics_lrc_info">Synchronized lyrics are loaded from .lrc files with the same name as the music track in its folder or inside a Lyrics subfolder.</string>
 </resources>
