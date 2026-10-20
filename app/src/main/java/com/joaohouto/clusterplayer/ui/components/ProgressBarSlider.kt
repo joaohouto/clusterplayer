@@ -42,6 +42,7 @@ fun ProgressBarSlider(
     currentPositionMs: Long,
     durationMs: Long,
     isPlaying: Boolean = false,
+    trackKey: String? = null,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -57,19 +58,24 @@ fun ProgressBarSlider(
     var anchorRealtimeMs by remember { mutableLongStateOf(android.os.SystemClock.elapsedRealtime()) }
     var livePositionMs by remember { mutableLongStateOf(currentPositionMs) }
 
+    LaunchedEffect(trackKey) {
+        anchorPositionMs = currentPositionMs
+        anchorRealtimeMs = android.os.SystemClock.elapsedRealtime()
+        livePositionMs = currentPositionMs
+    }
+
     LaunchedEffect(currentPositionMs) {
         anchorPositionMs = currentPositionMs
         anchorRealtimeMs = android.os.SystemClock.elapsedRealtime()
         if (!isDragging) {
-            // Em reprodução contínua, evita micro-saltos de jitter de buffers menores que 400ms,
-            // permitindo que a projeção flua a 60fps sem oscilação
-            if (kotlin.math.abs(currentPositionMs - livePositionMs) > 400L || !isPlaying) {
+            // Sincroniza imediatamente se houver desvio > 150ms, reset de faixa (currentPositionMs == 0L) ou pausa
+            if (currentPositionMs == 0L || kotlin.math.abs(currentPositionMs - livePositionMs) > 150L || !isPlaying) {
                 livePositionMs = currentPositionMs
             }
         }
     }
 
-    LaunchedEffect(isPlaying, validDuration) {
+    LaunchedEffect(isPlaying, validDuration, trackKey) {
         if (isPlaying) {
             while (isActive) {
                 if (!isDragging) {

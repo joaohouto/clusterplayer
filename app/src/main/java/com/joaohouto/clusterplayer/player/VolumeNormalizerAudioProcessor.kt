@@ -6,79 +6,153 @@ import androidx.media3.common.audio.BaseAudioProcessor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
-import kotlin.math.sqrt
+import kotlin.math.max
+import kotlin.math.pow
+import kotlin.math.tanh
 
 /**
- * Processador de áudio PCM de alta fidelidade para Normalização Dinâmica de Volume (Loudness Normalizer)
- * e nivelamento automático de faixas musicais para uso automotivo.
+ * Processador de áudio PCM (16-bit e Float) para aplicação de ganho estático por faixa
+ * segundo o padrão EBU R128 / ITU-R BS.1770-4 e ReplayGain, com rampa suave de transição
+ * e limitador de pico soft-knee.
  *
- * Características:
- * 1. Análise contínua de RMS por bloco com janela ponderada.
- * 2. Controle automático de ganho (AGC) com attack suave (rápido para evitar picos) e release musical
- *    (lento para evitar efeito de "bombeamento/respiração").
- * 3. Limiter analógico virtual com curva soft-knee (saturação suave), garantindo ZERO distorção por
- *    clipping digital mesmo em passagens orquestrais ou graves profundos.
- * 4. Noise gate adaptativo para ignorar ruído de fundo e silêncio.
- * 5. Suporte a ReplayGain inicial por faixa com transição suave.
+ * Arquitetura de fonte única de verdade (Zero Pumping / Zero Ducking):
+ * - Não realiza medição dinâmica bloco-a-bloco em tempo real (que causava variação de volume
+ *   entre estrofes e refrões/graves).
+ * - Aplica exclusivamente o ganho estático da faixa (vindo de tags ReplayGain/R128 ou do cache
+ *   persistente `track_loudness` analisado em background pelo `EbuR128Scanner`).
+ * - Para faixas ainda sem cache, inicia em ganho neutro (0 dB / 1.0x) e aplica uma rampa suave
+ *   de 400ms assim que o scanner em segundo plano conclui a medição.
+ * - Nas fronteiras entre faixas (gapless), aplica uma micro-rampa de 15ms para evitar degraus audíveis.
  */
 class VolumeNormalizerAudioProcessor : BaseAudioProcessor() {
 
     companion object {
-        // Alvo de RMS padrão: ~5200 em escala PCM 16-bit (aprox. -16 dBFS),
-        // nível ideal de referência para som automotivo com ~16 dB de headroom dinâmico.
-        private const val TARGET_RMS = 5200f
+        // Limites de ganho linear (~ -9.0 dB a +9.0 dB)
+        private const val MIN_GAIN = 0.3548134f
+        private const val MAX_GAIN = 2.818383f
 
-        // Limiar de silêncio para ignorar ruído de fundo e silêncio (~ -42 dBFS)
-        private const val SILENCE_THRESHOLD_RMS = 260f
+        // Parâmetros do Soft-Knee Peak Limiter em escala normalizada [-1.0, +1.0]
+        // Joelho suave em -1.2 dBFS (0.87096) e teto absoluto em -0.1 dBFS (0.98855)
+        private const val LIMITER_THRESHOLD_NORM = 0.8709636f
+        private const val LIMITER_CEILING_NORM = 0.9885531f
+        private const val LIMITER_HEADROOM_NORM = LIMITER_CEILING_NORM - LIMITER_THRESHOLD_NORM
 
-        // Limites seguros de ganho automático
-        private const val MIN_GAIN = 0.35f  // -9.1 dB (atenua faixas hipercomprimidas ou muito altas)
-        private const val MAX_GAIN = 3.60f  // +11.1 dB (amplifica faixas antigas ou muito baixas)
-
-        // Coeficientes de suavização (asymmetric smoothing)
-        // Attack: adaptação rápida em ~70ms quando o volume sobe para evitar sobressaltos e picos
-        private const val ATTACK_FACTOR = 0.12f
-        // Release: adaptação gradual em ~2.5s quando o volume desce para preservar musicalidade e evitar bombeamento
-        private const val RELEASE_FACTOR = 0.005f
-
-        // Parâmetros do Soft-knee Limiter (knee em ~ -1.3 dBFS)
-        private const val LIMITER_THRESHOLD = 28000f
-        private const val LIMITER_MAX = 32760f
+        const val BOUNDARY_RAMP_MS = 15
+        const val ASYNC_SCAN_RAMP_MS = 400
     }
 
     @Volatile
     var isNormalizerEnabled: Boolean = true
-        set(value) {
-            if (field != value) {
-                field = value
-                if (value) {
-                    currentGain = 1.0f
-                }
-            }
-        }
 
     @Volatile
-    private var trackReplayGainFactor: Float = 1.0f
+    private var isTagGainLocked: Boolean = false
 
-    private var currentGain: Float = 1.0f
+    @Volatile
+    private var targetGainLinear: Float = 1.0f
 
-    fun setTrackReplayGain(gainDb: Float) {
-        val factor = Math.pow(10.0, (gainDb / 20.0).toDouble()).toFloat()
-        val safeFactor = if (factor.isNaN() || factor.isInfinite()) 1.0f else factor
-        trackReplayGainFactor = safeFactor.coerceIn(MIN_GAIN, MAX_GAIN)
-        currentGain = trackReplayGainFactor
+    @Volatile
+    private var pendingRampDurationMs: Int = BOUNDARY_RAMP_MS
+
+    @Volatile
+    private var rampNeedsUpdate: Boolean = false
+
+    // Estado interno da rampa (acessado na thread de áudio)
+    private var currentGainLinear: Float = 1.0f
+    private var activeTargetGainLinear: Float = 1.0f
+    private var gainStepPerFrame: Float = 0f
+    private var remainingRampFrames: Int = 0
+
+    /**
+     * Define o ganho estático da faixa em dB.
+     *
+     * @param gainDb Ganho em dB (ex: calculado via EBU R128 ou lido de tag ReplayGain/R128).
+     * @param rampDurationMs Duração da rampa de transição (15ms na troca de faixa, 400ms se assíncrono).
+     * @param fromTag Se verdadeiro, bloqueia sobrescrita pelo scanner da mesma faixa.
+     */
+    fun setTrackGainDb(
+        gainDb: Float,
+        rampDurationMs: Int = BOUNDARY_RAMP_MS,
+        fromTag: Boolean = false
+    ) {
+        if (!fromTag && isTagGainLocked) {
+            return
+        }
+        if (fromTag) {
+            isTagGainLocked = true
+        }
+        val linear = if (gainDb.isFinite()) {
+            10.0.pow(gainDb.toDouble() / 20.0).toFloat()
+        } else {
+            1.0f
+        }
+        targetGainLinear = linear.coerceIn(MIN_GAIN, MAX_GAIN)
+        pendingRampDurationMs = rampDurationMs.coerceAtLeast(0)
+        rampNeedsUpdate = true
     }
 
-    fun resetTrackGain() {
-        trackReplayGainFactor = 1.0f
-        currentGain = 1.0f
+    /**
+     * Compatibilidade para aplicação direta de tag ReplayGain/R128.
+     */
+    fun setTrackReplayGain(gainDb: Float, rampDurationMs: Int = BOUNDARY_RAMP_MS) {
+        setTrackGainDb(gainDb = gainDb, rampDurationMs = rampDurationMs, fromTag = true)
+    }
+
+    /**
+     * Reseta o ganho para neutro (0 dB / 1.0x) no início de uma nova faixa sem cache prévio,
+     * usando micro-rampa de fronteira (15ms) para evitar clique em transição gapless.
+     */
+    fun resetTrackGain(rampDurationMs: Int = BOUNDARY_RAMP_MS) {
+        isTagGainLocked = false
+        targetGainLinear = 1.0f
+        pendingRampDurationMs = rampDurationMs.coerceAtLeast(0)
+        rampNeedsUpdate = true
+    }
+
+    fun getCurrentTargetGainDb(): Float {
+        return (20.0 * kotlin.math.log10(targetGainLinear.toDouble())).toFloat()
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
+        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT &&
+            inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT
+        ) {
             throw AudioProcessor.UnhandledAudioFormatException(inputAudioFormat)
         }
         return inputAudioFormat
+    }
+
+    private fun syncRampStateIfNeeded() {
+        if (!rampNeedsUpdate) return
+        rampNeedsUpdate = false
+
+        val newTarget = targetGainLinear
+        activeTargetGainLinear = newTarget
+
+        val sr = if (inputAudioFormat.sampleRate > 0) inputAudioFormat.sampleRate else 44100
+        val rampMs = pendingRampDurationMs
+        val totalFrames = (sr.toLong() * rampMs.toLong() / 1000L).toInt()
+
+        if (totalFrames <= 1 || abs(newTarget - currentGainLinear) < 1e-5f) {
+            currentGainLinear = newTarget
+            remainingRampFrames = 0
+            gainStepPerFrame = 0f
+        } else {
+            remainingRampFrames = totalFrames
+            gainStepPerFrame = (newTarget - currentGainLinear) / totalFrames.toFloat()
+        }
+    }
+
+    private fun nextFrameGain(): Float {
+        if (remainingRampFrames > 0) {
+            currentGainLinear += gainStepPerFrame
+            remainingRampFrames--
+            if (remainingRampFrames == 0) {
+                currentGainLinear = activeTargetGainLinear
+            }
+        } else {
+            currentGainLinear = activeTargetGainLinear
+        }
+        return currentGainLinear
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
@@ -89,93 +163,97 @@ class VolumeNormalizerAudioProcessor : BaseAudioProcessor() {
         outputBuffer.order(ByteOrder.LITTLE_ENDIAN)
         inputBuffer.order(ByteOrder.LITTLE_ENDIAN)
 
-        // Proteção contra buffers minúsculos (< 1 amostra de 16-bit) ou normalização desativada
-        if (!isNormalizerEnabled || remaining < 2) {
+        if (!isNormalizerEnabled) {
             outputBuffer.put(inputBuffer)
             outputBuffer.flip()
             return
         }
 
-        val sampleCount = remaining / 2
-        if (sampleCount <= 0) {
-            outputBuffer.put(inputBuffer)
-            outputBuffer.flip()
-            return
-        }
+        syncRampStateIfNeeded()
 
-        var sumSquares = 0.0
-        var maxAbs = 0
-        val originalPosition = inputBuffer.position()
-
-        // 1. Calcula energia RMS e pico absoluto do bloco atual
-        for (i in 0 until sampleCount) {
-            val sample = inputBuffer.getShort(originalPosition + (i * 2)).toInt()
-            sumSquares += (sample * sample)
-            val absVal = abs(sample)
-            if (absVal > maxAbs) {
-                maxAbs = absVal
-            }
-        }
-
-        val rms = sqrt(sumSquares / sampleCount.toDouble()).toFloat()
-        val safeRms = if (rms.isNaN() || rms.isInfinite()) 0f else rms
-
-        // 2. Determina o ganho ideal para este bloco
-        val targetGain = if (safeRms >= SILENCE_THRESHOLD_RMS) {
-            val needed = (TARGET_RMS / safeRms) * trackReplayGainFactor
-            needed.coerceIn(MIN_GAIN, MAX_GAIN)
-        } else {
-            // Silêncio ou ruído de fundo: mantém o ganho atual sem bombear ruído
-            currentGain
-        }
-
-        // Limita o ganho alvo para evitar sobrecarregar o soft-limiter em transientes fortes
-        val peakSafeGain = if (maxAbs > 0) (LIMITER_MAX * 0.95f / maxAbs).coerceIn(MIN_GAIN, MAX_GAIN) else MAX_GAIN
-        val safeTargetGain = minOf(targetGain, peakSafeGain)
-
-        val startGain = if (currentGain.isNaN() || currentGain.isInfinite()) 1.0f else currentGain
-        val smoothingFactor = if (safeTargetGain < startGain) ATTACK_FACTOR else RELEASE_FACTOR
-        val endGain = (startGain + (safeTargetGain - startGain) * smoothingFactor).coerceIn(MIN_GAIN, MAX_GAIN)
-        currentGain = endGain
-
-        // 3. Aplica o ganho com interpolação linear por amostra e Soft-knee Limiter
-        inputBuffer.position(originalPosition)
-        for (i in 0 until sampleCount) {
-            val sample = inputBuffer.short.toFloat()
-            val sampleGain = startGain + (endGain - startGain) * (i.toFloat() / sampleCount.toFloat())
-            val amplified = sample * sampleGain
-            val limitedSample = applySoftLimiter(amplified)
-            outputBuffer.putShort(limitedSample)
-        }
-
-        // Consome byte ímpar remanescente se houver
-        if (inputBuffer.hasRemaining()) {
-            outputBuffer.put(inputBuffer.get())
+        val channels = max(1, inputAudioFormat.channelCount)
+        when (inputAudioFormat.encoding) {
+            C.ENCODING_PCM_16BIT -> processPcm16(inputBuffer, outputBuffer, channels)
+            C.ENCODING_PCM_FLOAT -> processPcmFloat(inputBuffer, outputBuffer, channels)
+            else -> outputBuffer.put(inputBuffer)
         }
 
         outputBuffer.flip()
     }
 
-    private fun applySoftLimiter(sample: Float): Short {
-        if (sample.isNaN() || sample.isInfinite()) return 0
-        val absVal = abs(sample)
-        if (absVal <= LIMITER_THRESHOLD) {
-            return sample.toInt().toShort()
+    private fun processPcm16(inputBuffer: ByteBuffer, outputBuffer: ByteBuffer, channels: Int) {
+        val bytesPerFrame = channels * 2
+        val frameCount = inputBuffer.remaining() / bytesPerFrame
+        val invScale = 1f / 32768f
+
+        for (f in 0 until frameCount) {
+            val frameGain = nextFrameGain()
+            for (ch in 0 until channels) {
+                val rawShort = inputBuffer.short
+                val normalized = rawShort.toFloat() * invScale
+                val amplified = normalized * frameGain
+                val limited = applyNormalizedSoftLimiter(amplified)
+                val outInt = (limited * 32767f).toInt().coerceIn(-32768, 32767)
+                outputBuffer.putShort(outInt.toShort())
+            }
         }
-        val excess = absVal - LIMITER_THRESHOLD
-        val range = LIMITER_MAX - LIMITER_THRESHOLD
-        val compressedExcess = excess * range / (range + excess)
-        val result = LIMITER_THRESHOLD + compressedExcess
-        return (if (sample >= 0) result else -result).toInt().coerceIn(-32768, 32767).toShort()
+
+        while (inputBuffer.hasRemaining()) {
+            outputBuffer.put(inputBuffer.get())
+        }
+    }
+
+    private fun processPcmFloat(inputBuffer: ByteBuffer, outputBuffer: ByteBuffer, channels: Int) {
+        val bytesPerFrame = channels * 4
+        val frameCount = inputBuffer.remaining() / bytesPerFrame
+
+        for (f in 0 until frameCount) {
+            val frameGain = nextFrameGain()
+            for (ch in 0 until channels) {
+                val sample = inputBuffer.float
+                if (!sample.isFinite()) {
+                    outputBuffer.putFloat(0f)
+                } else {
+                    val amplified = sample * frameGain
+                    val limited = applyNormalizedSoftLimiter(amplified)
+                    outputBuffer.putFloat(limited)
+                }
+            }
+        }
+
+        while (inputBuffer.hasRemaining()) {
+            outputBuffer.put(inputBuffer.get())
+        }
+    }
+
+    /**
+     * Limitador soft-knee com curva hiperbólica (tanh) acima de -1.2 dBFS e teto em -0.1 dBFS.
+     * Transparente abaixo do limiar (linear 1:1) e livre de clipping acima dele.
+     */
+    internal fun applyNormalizedSoftLimiter(sample: Float): Float {
+        if (!sample.isFinite()) return 0f
+        val absVal = abs(sample)
+        if (absVal <= LIMITER_THRESHOLD_NORM) {
+            return sample
+        }
+        val excess = (absVal - LIMITER_THRESHOLD_NORM) / LIMITER_HEADROOM_NORM
+        val compressed = LIMITER_THRESHOLD_NORM + LIMITER_HEADROOM_NORM * tanh(excess.toDouble()).toFloat()
+        val clamped = compressed.coerceAtMost(LIMITER_CEILING_NORM)
+        return if (sample >= 0f) clamped else -clamped
     }
 
     override fun onFlush() {
-        // Ao realizar seek ou corte de reprodução, reancora suavemente ao ganho de referência
-        currentGain = trackReplayGainFactor
+        // Preserva a continuidade da rampa em seeks ou transições gapless
+        syncRampStateIfNeeded()
     }
 
     override fun onReset() {
-        currentGain = 1.0f
-        trackReplayGainFactor = 1.0f
+        isTagGainLocked = false
+        targetGainLinear = 1.0f
+        currentGainLinear = 1.0f
+        activeTargetGainLinear = 1.0f
+        remainingRampFrames = 0
+        gainStepPerFrame = 0f
+        rampNeedsUpdate = false
     }
 }

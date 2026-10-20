@@ -57,18 +57,12 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun playTrackInCurrentFolder(trackIndex: Int) {
         val tracks = currentFolderTracks.value
-        val track = tracks.getOrNull(trackIndex)
-        if (track != null && !track.uri.startsWith("content://") && track.path.isNotEmpty() && !File(track.path).exists() && !File(track.path).canRead()) {
+        val track = tracks.getOrNull(trackIndex) ?: return
+        if (!track.uri.startsWith("content://") && track.path.isNotEmpty() && !File(track.path).exists() && !File(track.path).canRead()) {
             playerController.showCannotPlayToast()
             return
         }
-        val folderPath = playbackState.value.currentTrack?.folderPath
-        if (!folderPath.isNullOrEmpty() && playerController.hasMediaItemsForFolder(folderPath)) {
-            // Fast path: seek directly within current ExoPlayer playlist (0ms latency, no DB query or MediaItem recreation)
-            playerController.playTrackAtIndex(trackIndex)
-        } else if (!folderPath.isNullOrEmpty()) {
-            playerController.playFolder(folderPath, trackIndex)
-        }
+        playerController.playTrackFromQueue(track, tracks, trackIndex)
     }
 
     fun playPause() {

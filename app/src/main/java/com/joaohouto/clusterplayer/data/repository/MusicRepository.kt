@@ -104,6 +104,9 @@ class MusicRepository private constructor(
                     }
 
                     Log.d(TAG, "Scan completed and synced to database")
+                    com.joaohouto.clusterplayer.player.LoudnessAnalysisManager
+                        .getInstance(context)
+                        .triggerLibraryBatchAnalysis()
                 } catch (e: Exception) {
                     Log.e(TAG, "Error during media scan", e)
                 } finally {

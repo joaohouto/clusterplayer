@@ -50,21 +50,18 @@ class PlaybackService : MediaSessionService() {
     private lateinit var repository: MusicRepository
     private lateinit var audioEffectsManager: AudioEffectsManager
     private lateinit var volumeNormalizer: VolumeNormalizerAudioProcessor
+    private lateinit var loudnessManager: LoudnessAnalysisManager
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var positionSavingJob: Job? = null
     private var retryCount = 0
 
-    private var crossfadeSeconds: Int = 0
-    private var fadeInJob: Job? = null
-    private var fadeTickerJob: Job? = null
-    private var fadeOutActive: Boolean = false
     private var masterVolume: Float = 1.0f
-    private var currentFadeScale: Float = 1.0f
+    private var currentAnalyzedMediaId: String? = null
 
     private fun applyVolume() {
         if (::player.isInitialized) {
-            player.volume = (currentFadeScale * masterVolume).coerceIn(0f, 1f)
+            player.volume = masterVolume.coerceIn(0f, 1f)
         }
     }
 
@@ -76,6 +73,7 @@ class PlaybackService : MediaSessionService() {
         repository = MusicRepository.getInstance(this)
         audioEffectsManager = AudioEffectsManager()
         volumeNormalizer = VolumeNormalizerAudioProcessor()
+        loudnessManager = LoudnessAnalysisManager.getInstance(this)
 
         setupNotificationChannel()
         setupNotificationProvider()
@@ -84,18 +82,6 @@ class PlaybackService : MediaSessionService() {
         initializeMediaSession()
         setupPlayerListeners()
         startPeriodicPositionSaving()
-
-        serviceScope.launch {
-            preferencesDataStore.crossfadeSecondsFlow.collect { seconds ->
-                crossfadeSeconds = seconds
-                Log.d(TAG, "Crossfade seconds updated: $crossfadeSeconds")
-                if (crossfadeSeconds > 0 && ::player.isInitialized && player.isPlaying) {
-                    startFadeTicker()
-                } else if (crossfadeSeconds <= 0) {
-                    stopFadeTicker()
-                }
-            }
-        }
 
         serviceScope.launch {
             preferencesDataStore.appVolumePercentFlow.collect { percent ->
@@ -212,38 +198,42 @@ class PlaybackService : MediaSessionService() {
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 saveCurrentStateImmediate()
-                if (isPlaying) {
-                    startFadeTicker()
-                    if (crossfadeSeconds > 0 && player.volume < 0.2f) {
-                        startFadeIn(1200L)
-                    }
-                } else {
-                    stopFadeTicker()
-                }
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                val transitionMs = android.os.SystemClock.elapsedRealtime()
                 saveCurrentStateImmediate()
-                volumeNormalizer.resetTrackGain()
-                PlayerController.getInstance(this@PlaybackService).onDirectTrackTransition(mediaItem)
-                if (crossfadeSeconds > 0 && mediaItem != null) {
-                    startFadeIn((crossfadeSeconds * 1000L).coerceIn(1000L, 3500L))
-                } else {
-                    currentFadeScale = 1.0f
-                    applyVolume()
+                PlayerController.getInstance(this@PlaybackService)
+                    .onDirectTrackTransition(mediaItem, transitionMs)
+                applyVolume()
+                scheduleLoudnessAnalysisForCurrentAndNext(mediaItem)
+            }
+
+            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                for (group in tracks.groups) {
+                    for (i in 0 until group.length) {
+                        val format = group.getTrackFormat(i)
+                        val tagGainDb = EbuR128Scanner.extractTagGainFromMetadata(format.metadata)
+                        if (tagGainDb != null) {
+                            volumeNormalizer.setTrackReplayGain(
+                                gainDb = tagGainDb,
+                                rampDurationMs = VolumeNormalizerAudioProcessor.BOUNDARY_RAMP_MS
+                            )
+                            Log.d(TAG, "Applied ReplayGain/R128 tag from format metadata: $tagGainDb dB")
+                            return
+                        }
+                    }
                 }
             }
 
             override fun onMetadata(metadata: androidx.media3.common.Metadata) {
-                for (i in 0 until metadata.length()) {
-                    val entryText = metadata.get(i).toString()
-                    if (entryText.contains("REPLAYGAIN_TRACK_GAIN", ignoreCase = true)) {
-                        val match = Regex("""([+-]?\d+(?:\.\d+)?)\s*dB""").find(entryText)
-                        match?.groupValues?.get(1)?.toFloatOrNull()?.let { gainDb ->
-                            volumeNormalizer.setTrackReplayGain(gainDb)
-                            Log.d(TAG, "ReplayGain track gain applied from metadata: $gainDb dB")
-                        }
-                    }
+                val tagGainDb = EbuR128Scanner.extractTagGainFromMetadata(metadata)
+                if (tagGainDb != null) {
+                    volumeNormalizer.setTrackReplayGain(
+                        gainDb = tagGainDb,
+                        rampDurationMs = VolumeNormalizerAudioProcessor.BOUNDARY_RAMP_MS
+                    )
+                    Log.d(TAG, "Applied ReplayGain/R128 tag from stream metadata: $tagGainDb dB")
                 }
             }
 
@@ -253,7 +243,10 @@ class PlaybackService : MediaSessionService() {
                 reason: Int
             ) {
                 if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION || reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT) {
-                    PlayerController.getInstance(this@PlaybackService).onDirectTrackTransition(player.currentMediaItem)
+                    PlayerController.getInstance(this@PlaybackService).onDirectTrackTransition(
+                        player.currentMediaItem,
+                        android.os.SystemClock.elapsedRealtime()
+                    )
                 }
             }
 
@@ -309,63 +302,53 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    private fun startFadeIn(durationMs: Long) {
-        fadeInJob?.cancel()
-        fadeOutActive = false
-        if (durationMs <= 0L) {
-            currentFadeScale = 1.0f
-            applyVolume()
+    private fun scheduleLoudnessAnalysisForCurrentAndNext(currentItem: MediaItem?) {
+        val mediaId = currentItem?.mediaId
+        if (mediaId.isNullOrEmpty()) {
+            currentAnalyzedMediaId = null
+            volumeNormalizer.resetTrackGain()
             return
         }
-        fadeInJob = serviceScope.launch {
-            currentFadeScale = 0.0f
-            applyVolume()
-            val stepInterval = 40L
-            val steps = (durationMs / stepInterval).coerceAtLeast(1)
-            for (i in 1..steps) {
-                delay(stepInterval)
-                val linearProgress = i.toFloat() / steps
-                currentFadeScale = Math.sin(linearProgress * Math.PI / 2).toFloat().coerceIn(0f, 1f)
-                applyVolume()
-            }
-            currentFadeScale = 1.0f
-            applyVolume()
+
+        currentAnalyzedMediaId = mediaId
+        // Start neutral (0 dB) with a short boundary micro-ramp until cache or scan resolves
+        volumeNormalizer.resetTrackGain(rampDurationMs = VolumeNormalizerAudioProcessor.BOUNDARY_RAMP_MS)
+
+        val currentFilePath = currentItem.mediaMetadata.extras?.getString("filePath")
+        val nextIndex = player.nextMediaItemIndex
+        val nextItem = if (nextIndex != C.INDEX_UNSET && nextIndex in 0 until player.mediaItemCount) {
+            player.getMediaItemAt(nextIndex)
+        } else {
+            null
         }
-    }
+        val nextUri = nextItem?.mediaId
+        val nextFilePath = nextItem?.mediaMetadata?.extras?.getString("filePath")
 
-    private fun updateFadeOut(remainingMs: Long, fadeDurationMs: Long) {
-        if (fadeInJob?.isActive == true) return
-        fadeOutActive = true
-        val progress = (remainingMs.toFloat() / fadeDurationMs.toFloat()).coerceIn(0f, 1f)
-        currentFadeScale = Math.sin(progress * Math.PI / 2).toFloat().coerceIn(0f, 1f)
-        applyVolume()
-    }
-
-    private fun startFadeTicker() {
-        fadeTickerJob?.cancel()
-        if (crossfadeSeconds <= 0) return
-        fadeTickerJob = serviceScope.launch {
-            while (isActive) {
-                delay(150L)
-                if (player.isPlaying && crossfadeSeconds > 0 && player.duration > 0) {
-                    val remainingMs = player.duration - player.currentPosition
-                    val fadeDurationMs = crossfadeSeconds * 1000L
-                    if (remainingMs in 0..fadeDurationMs) {
-                        updateFadeOut(remainingMs, fadeDurationMs)
-                    } else if (fadeOutActive && fadeInJob?.isActive != true) {
-                        fadeOutActive = false
-                        currentFadeScale = 1.0f
-                        applyVolume()
-                    }
+        loudnessManager.analyzeCurrentAndNextTrack(
+            currentUri = mediaId,
+            currentFilePath = currentFilePath,
+            nextUri = nextUri,
+            nextFilePath = nextFilePath
+        ) { measuredUri, measurement, fromCache ->
+            // Guard against race if track changed while scanning
+            if (currentAnalyzedMediaId == measuredUri) {
+                val gainDb = measurement.computeGainDb()
+                val rampMs = if (fromCache) {
+                    VolumeNormalizerAudioProcessor.BOUNDARY_RAMP_MS
+                } else {
+                    VolumeNormalizerAudioProcessor.ASYNC_SCAN_RAMP_MS
                 }
+                volumeNormalizer.setTrackGainDb(
+                    gainDb = gainDb,
+                    rampDurationMs = rampMs,
+                    fromTag = false
+                )
+                Log.d(
+                    TAG,
+                    "Loudness gain applied for $measuredUri: ${"%.2f".format(gainDb)} dB (lufs=${"%.2f".format(measurement.integratedLufs)}, fromCache=$fromCache, ramp=${rampMs}ms)"
+                )
             }
         }
-    }
-
-    private fun stopFadeTicker() {
-        fadeTickerJob?.cancel()
-        fadeTickerJob = null
-        fadeOutActive = false
     }
 
     private fun startPeriodicPositionSaving() {
@@ -424,7 +407,10 @@ class PlaybackService : MediaSessionService() {
                     val scanResult = withContext(Dispatchers.IO) {
                         com.joaohouto.clusterplayer.data.scanner.StorageScanner(this@PlaybackService).scanStorage()
                     }
-                    tracks = scanResult.tracks.filter { it.folderPath == folderPath }.map { it.toDomain() }
+                    tracks = scanResult.tracks
+                        .filter { it.folderPath == folderPath }
+                        .map { it.toDomain() }
+                        .sortedWith(compareBy<Track> { it.trackNumber }.thenBy { it.title.lowercase() })
                 }
 
                 val validTracks = tracks.filter { it.path.isEmpty() || File(it.path).exists() }
@@ -441,6 +427,7 @@ class PlaybackService : MediaSessionService() {
                     val seekPos = if (positionMs > 0L) positionMs else 0L
                     player.seekTo(targetIndex, seekPos)
                     player.prepare()
+                    scheduleLoudnessAnalysisForCurrentAndNext(player.currentMediaItem)
                     if (snapshot.autoplayOnStart) {
                         player.play()
                         Log.d(TAG, "Autoplay restored and playing: folder=$folderPath, index=$targetIndex, pos=${seekPos}ms")
@@ -493,8 +480,6 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         saveCurrentStateImmediate()
-        stopFadeTicker()
-        fadeInJob?.cancel()
         positionSavingJob?.cancel()
         serviceScope.cancel()
 

@@ -78,6 +78,13 @@ class PlayerController private constructor(private val context: Context) {
     private var lyricsLines: List<LrcLine>? = null
     private var lastSeekTimestamp = 0L
     private var lastSeekTargetMs = -1L
+    private var anchorPositionMs = 0L
+    private var anchorRealtimeMs = 0L
+    private var lastDirectTransitionRealtimeMs = 0L
+
+    private fun getActivePlayer(): Player? {
+        return PlaybackService.getMediaSessionInstance()?.player ?: mediaController
+    }
 
     private val repository = MusicRepository.getInstance(context)
     private val preferencesDataStore = PreferencesDataStore.getInstance(context)
@@ -142,8 +149,18 @@ class PlayerController private constructor(private val context: Context) {
         }
     }
 
-    fun onDirectTrackTransition(mediaItem: MediaItem?) {
-        controllerScope.launch(Dispatchers.Main) {
+    fun onDirectTrackTransition(mediaItem: MediaItem?, transitionRealtimeMs: Long = android.os.SystemClock.elapsedRealtime()) {
+        controllerScope.launch(Dispatchers.Main.immediate) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            lastDirectTransitionRealtimeMs = now
+            lastSeekTimestamp = 0L
+            lastSeekTargetMs = -1L
+            anchorPositionMs = 0L
+            anchorRealtimeMs = now
+            Log.d(
+                TAG,
+                "TrackTransition [Direct]: mediaId=${mediaItem?.mediaId}, title=${mediaItem?.mediaMetadata?.title}, dispatchDeltaMs=${now - transitionRealtimeMs}"
+            )
             loadCurrentTrackMetadata(mediaItem)
             _currentPosition.value = 0L
             updateStateFromController()
@@ -161,9 +178,12 @@ class PlayerController private constructor(private val context: Context) {
                         Player.EVENT_IS_PLAYING_CHANGED
                     )
                 ) {
-                    val currentItem = player.currentMediaItem
+                    val activePlayer = getActivePlayer() ?: player
+                    val currentItem = activePlayer.currentMediaItem
                     if (currentItem != null && currentItem.mediaId != _uiState.value.currentTrack?.uri) {
                         loadCurrentTrackMetadata(currentItem)
+                        anchorPositionMs = 0L
+                        anchorRealtimeMs = android.os.SystemClock.elapsedRealtime()
                         _currentPosition.value = 0L
                     }
                     updateStateFromController()
@@ -172,7 +192,8 @@ class PlayerController private constructor(private val context: Context) {
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 updateStateFromController()
-                if (isPlaying) {
+                val activePlaying = getActivePlayer()?.isPlaying ?: isPlaying
+                if (activePlaying) {
                     startPositionTicker()
                 } else {
                     stopPositionTicker()
@@ -189,10 +210,20 @@ class PlayerController private constructor(private val context: Context) {
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                val now = android.os.SystemClock.elapsedRealtime()
+                val activeItem = getActivePlayer()?.currentMediaItem ?: mediaItem
+                Log.d(
+                    TAG,
+                    "TrackTransition [Controller IPC]: ipcMediaId=${mediaItem?.mediaId}, activeMediaId=${activeItem?.mediaId}, reason=$reason, sinceDirectMs=${now - lastDirectTransitionRealtimeMs}"
+                )
                 lastSeekTimestamp = 0L
                 lastSeekTargetMs = -1L
-                loadCurrentTrackMetadata(mediaItem)
-                _currentPosition.value = 0L
+                if (activeItem?.mediaId != _uiState.value.currentTrack?.uri) {
+                    loadCurrentTrackMetadata(activeItem)
+                    anchorPositionMs = 0L
+                    anchorRealtimeMs = now
+                    _currentPosition.value = 0L
+                }
                 updateStateFromController()
             }
 
@@ -201,21 +232,27 @@ class PlayerController private constructor(private val context: Context) {
                 newPosition: Player.PositionInfo,
                 reason: Int
             ) {
-                val currentItem = controller.currentMediaItem
+                val activePlayer = getActivePlayer() ?: controller
+                val currentItem = activePlayer.currentMediaItem
+                val now = android.os.SystemClock.elapsedRealtime()
                 if (currentItem != null && currentItem.mediaId != _uiState.value.currentTrack?.uri) {
                     lastSeekTimestamp = 0L
                     lastSeekTargetMs = -1L
+                    anchorPositionMs = 0L
+                    anchorRealtimeMs = now
                     loadCurrentTrackMetadata(currentItem)
                     _currentPosition.value = 0L
                     updateStateFromController()
                 } else {
-                    val pos = newPosition.positionMs.coerceAtLeast(0L)
+                    val pos = (activePlayer.currentPosition.takeIf { it >= 0L } ?: newPosition.positionMs).coerceAtLeast(0L)
                     lastSeekTimestamp = 0L
                     lastSeekTargetMs = -1L
+                    anchorPositionMs = pos
+                    anchorRealtimeMs = now
                     _currentPosition.value = pos
-                    val duration = if (controller.duration > 0) controller.duration else _uiState.value.durationMs
+                    val duration = if (activePlayer.duration > 0) activePlayer.duration else _uiState.value.durationMs
                     _uiState.value = _uiState.value.copy(
-                        isPlaying = controller.isPlaying,
+                        isPlaying = activePlayer.isPlaying,
                         currentPositionMs = pos,
                         durationMs = duration
                     )
@@ -228,18 +265,21 @@ class PlayerController private constructor(private val context: Context) {
             }
 
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-                _uiState.value = _uiState.value.copy(isShuffleEnabled = shuffleModeEnabled)
+                val activeShuffle = getActivePlayer()?.shuffleModeEnabled ?: shuffleModeEnabled
+                _uiState.value = _uiState.value.copy(isShuffleEnabled = activeShuffle)
             }
 
             override fun onRepeatModeChanged(repeatMode: Int) {
-                _uiState.value = _uiState.value.copy(repeatMode = repeatMode)
+                val activeRepeat = getActivePlayer()?.repeatMode ?: repeatMode
+                _uiState.value = _uiState.value.copy(repeatMode = activeRepeat)
             }
         })
 
-        if (controller.isPlaying) {
+        val initialPlayer = getActivePlayer() ?: controller
+        if (initialPlayer.isPlaying) {
             startPositionTicker()
         }
-        loadCurrentTrackMetadata(controller.currentMediaItem)
+        loadCurrentTrackMetadata(initialPlayer.currentMediaItem)
     }
 
     private fun loadCurrentTrackMetadata(mediaItem: MediaItem?) {
@@ -328,9 +368,9 @@ class PlayerController private constructor(private val context: Context) {
     private fun getSanitizedPosition(controller: MediaController): Long {
         val now = android.os.SystemClock.elapsedRealtime()
         val isSeekingDebounced = (now - lastSeekTimestamp) < 800L
-        val directPlayer = PlaybackService.getMediaSessionInstance()?.player
-        val rawPos = (directPlayer?.currentPosition ?: controller.currentPosition).coerceAtLeast(0L)
-        return if (isSeekingDebounced && lastSeekTargetMs >= 0L) {
+        val activePlayer = getActivePlayer() ?: controller
+        val rawPos = activePlayer.currentPosition.coerceAtLeast(0L)
+        val resolvedPos = if (isSeekingDebounced && lastSeekTargetMs >= 0L) {
             if (kotlin.math.abs(rawPos - lastSeekTargetMs) < 1500L) {
                 lastSeekTimestamp = 0L
                 lastSeekTargetMs = -1L
@@ -341,23 +381,27 @@ class PlayerController private constructor(private val context: Context) {
         } else {
             rawPos
         }
+        anchorPositionMs = resolvedPos
+        anchorRealtimeMs = now
+        return resolvedPos
     }
 
     private fun updateStateFromController() {
         val controller = mediaController ?: return
-        val playerDuration = if (controller.duration > 0) controller.duration else {
-            PlaybackService.getMediaSessionInstance()?.player?.duration?.takeIf { it > 0 } ?: 0L
-        }
+        val activePlayer = getActivePlayer() ?: controller
+        val playerDuration = activePlayer.duration.takeIf { it > 0 }
+            ?: controller.duration.takeIf { it > 0 }
+            ?: 0L
         val duration = if (playerDuration > 0) playerDuration else _uiState.value.currentTrack?.durationMs ?: 0L
         val currentPos = getSanitizedPosition(controller)
 
         _currentPosition.value = currentPos
         _uiState.value = _uiState.value.copy(
-            isPlaying = controller.isPlaying,
+            isPlaying = activePlayer.isPlaying,
             currentPositionMs = currentPos,
             durationMs = duration,
-            isShuffleEnabled = controller.shuffleModeEnabled,
-            repeatMode = controller.repeatMode
+            isShuffleEnabled = activePlayer.shuffleModeEnabled,
+            repeatMode = activePlayer.repeatMode
         )
         updateLyricsLine(currentPos)
     }
@@ -379,14 +423,22 @@ class PlayerController private constructor(private val context: Context) {
         stopPositionTicker()
         positionTickerJob = controllerScope.launch {
             while (isActive) {
-                delay(50) // Alta precisão (20fps) para sincronização perfeita de áudio e letra
-                val controller = mediaController
-                if (controller != null && controller.isPlaying) {
-                    val currentItem = controller.currentMediaItem
-                    // Se o item mudou (ex: transição gapless ou automática), sincroniza imediatamente os metadados!
+                delay(50) // Ressincronização de âncora e letras com o directPlayer
+                val controller = mediaController ?: continue
+                val activePlayer = getActivePlayer() ?: controller
+                if (activePlayer.isPlaying) {
+                    val currentItem = activePlayer.currentMediaItem
+                    // Sempre consulta o directPlayer primeiro para nunca reverter a faixa por atraso IPC
                     if (currentItem != null && currentItem.mediaId != _uiState.value.currentTrack?.uri) {
+                        val now = android.os.SystemClock.elapsedRealtime()
+                        Log.d(
+                            TAG,
+                            "TrackTransition [Ticker Sync]: mediaId=${currentItem.mediaId}, sinceDirectMs=${now - lastDirectTransitionRealtimeMs}"
+                        )
                         lastSeekTimestamp = 0L
                         lastSeekTargetMs = -1L
+                        anchorPositionMs = 0L
+                        anchorRealtimeMs = now
                         loadCurrentTrackMetadata(currentItem)
                         _currentPosition.value = 0L
                         updateStateFromController()
@@ -394,12 +446,11 @@ class PlayerController private constructor(private val context: Context) {
                         val pos = getSanitizedPosition(controller)
                         _currentPosition.value = pos
 
-                        // Atualiza dinamicamente a duração precisa caso demuxer tenha finalizado
-                        val pDuration = if (controller.duration > 0) controller.duration else {
-                            PlaybackService.getMediaSessionInstance()?.player?.duration?.takeIf { it > 0 } ?: 0L
-                        }
+                        val pDuration = activePlayer.duration.takeIf { it > 0 }
+                            ?: controller.duration.takeIf { it > 0 }
+                            ?: 0L
                         if (pDuration > 0 && pDuration != _uiState.value.durationMs) {
-                            _uiState.value = _uiState.value.copy(durationMs = pDuration)
+                            _uiState.value = _uiState.value.copy(durationMs = pDuration, currentPositionMs = pos)
                         }
 
                         updateLyricsLine(pos)
@@ -468,28 +519,86 @@ class PlayerController private constructor(private val context: Context) {
         _uiState.value = _uiState.value.copy(repeatMode = nextMode)
     }
 
+    fun playTrackFromQueue(track: Track, queueTracks: List<Track>, fallbackIndex: Int) {
+        val activePlayer = getActivePlayer() ?: return
+        if (!track.uri.startsWith("content://") && track.path.isNotEmpty() && !File(track.path).exists() && !File(track.path).canRead()) {
+            Log.w(TAG, "Selected track file does not exist: ${track.path}")
+            showCannotPlayToast()
+            return
+        }
+
+        val currentFolder = _uiState.value.currentTrack?.folderPath
+        val isSameFolder = !track.folderPath.isEmpty() && currentFolder == track.folderPath
+        var matchedIndex = -1
+
+        if (isSameFolder && activePlayer.mediaItemCount > 0) {
+            for (i in 0 until activePlayer.mediaItemCount) {
+                if (activePlayer.getMediaItemAt(i).mediaId == track.uri) {
+                    matchedIndex = i
+                    break
+                }
+            }
+        }
+
+        if (matchedIndex >= 0 && activePlayer.mediaItemCount == queueTracks.size) {
+            val item = activePlayer.getMediaItemAt(matchedIndex)
+            val now = android.os.SystemClock.elapsedRealtime()
+            lastSeekTimestamp = 0L
+            lastSeekTargetMs = -1L
+            anchorPositionMs = 0L
+            anchorRealtimeMs = now
+            activePlayer.seekTo(matchedIndex, 0L)
+            if (activePlayer.playbackState == Player.STATE_IDLE) {
+                activePlayer.prepare()
+            }
+            if (!activePlayer.isPlaying) {
+                activePlayer.play()
+            }
+            loadCurrentTrackMetadata(item)
+            _currentPosition.value = 0L
+            updateStateFromController()
+        } else if (queueTracks.isNotEmpty()) {
+            playTracks(queueTracks, fallbackIndex)
+        } else if (track.folderPath.isNotEmpty()) {
+            playFolder(track.folderPath, fallbackIndex)
+        } else {
+            showCannotPlayToast()
+        }
+    }
+
     fun playTrackAtIndex(index: Int) {
-        val controller = mediaController ?: return
-        if (index in 0 until controller.mediaItemCount) {
-            val item = controller.getMediaItemAt(index)
+        val activePlayer = getActivePlayer() ?: return
+        if (index in 0 until activePlayer.mediaItemCount) {
+            val item = activePlayer.getMediaItemAt(index)
             val filePath = item.mediaMetadata.extras?.getString("filePath") ?: ""
-            if (filePath.isNotEmpty() && !File(filePath).exists()) {
+            if (filePath.isNotEmpty() && !File(filePath).exists() && !File(filePath).canRead()) {
                 Log.w(TAG, "File no longer exists for track at index $index: $filePath")
                 showCannotPlayToast()
                 return
             }
-            controller.seekToDefaultPosition(index)
-            if (!controller.isPlaying) {
-                controller.play()
+            val now = android.os.SystemClock.elapsedRealtime()
+            lastSeekTimestamp = 0L
+            lastSeekTargetMs = -1L
+            anchorPositionMs = 0L
+            anchorRealtimeMs = now
+            activePlayer.seekTo(index, 0L)
+            if (activePlayer.playbackState == Player.STATE_IDLE) {
+                activePlayer.prepare()
             }
+            if (!activePlayer.isPlaying) {
+                activePlayer.play()
+            }
+            loadCurrentTrackMetadata(item)
+            _currentPosition.value = 0L
+            updateStateFromController()
         } else {
             showCannotPlayToast()
         }
     }
 
     fun hasMediaItemsForFolder(folderPath: String): Boolean {
-        val controller = mediaController ?: return false
-        if (controller.mediaItemCount == 0) return false
+        val activePlayer = getActivePlayer() ?: return false
+        if (activePlayer.mediaItemCount == 0) return false
         val currentFolder = _uiState.value.currentTrack?.folderPath
         return currentFolder == folderPath
     }
@@ -513,8 +622,8 @@ class PlayerController private constructor(private val context: Context) {
             }
 
             val targetTrack = tracks.getOrNull(startIndex)
-            val adjustedIndex = if (targetTrack != null && validTracks.contains(targetTrack)) {
-                validTracks.indexOf(targetTrack)
+            val adjustedIndex = if (targetTrack != null) {
+                validTracks.indexOfFirst { it.uri == targetTrack.uri }.takeIf { it >= 0 } ?: 0
             } else {
                 0
             }
@@ -524,7 +633,7 @@ class PlayerController private constructor(private val context: Context) {
     }
 
     fun playTracks(tracks: List<Track>, startIndex: Int = 0) {
-        val controller = mediaController ?: return
+        val activePlayer = getActivePlayer() ?: return
         if (tracks.isEmpty()) {
             showCannotPlayToast()
             return
@@ -539,8 +648,8 @@ class PlayerController private constructor(private val context: Context) {
         }
 
         val targetTrack = tracks.getOrNull(startIndex)
-        val adjustedIndex = if (targetTrack != null && validTracks.contains(targetTrack)) {
-            validTracks.indexOf(targetTrack)
+        val adjustedIndex = if (targetTrack != null) {
+            validTracks.indexOfFirst { it.uri == targetTrack.uri }.takeIf { it >= 0 } ?: 0
         } else {
             0
         }
@@ -567,9 +676,18 @@ class PlayerController private constructor(private val context: Context) {
                 .build()
         }
 
-        controller.setMediaItems(mediaItems, adjustedIndex.coerceIn(0, mediaItems.size - 1), 0L)
-        controller.prepare()
-        controller.play()
+        val safeIndex = adjustedIndex.coerceIn(0, mediaItems.size - 1)
+        val now = android.os.SystemClock.elapsedRealtime()
+        lastSeekTimestamp = 0L
+        lastSeekTargetMs = -1L
+        anchorPositionMs = 0L
+        anchorRealtimeMs = now
+        activePlayer.setMediaItems(mediaItems, safeIndex, 0L)
+        activePlayer.prepare()
+        activePlayer.play()
+        loadCurrentTrackMetadata(mediaItems[safeIndex])
+        _currentPosition.value = 0L
+        updateStateFromController()
     }
 
     fun stop() {

@@ -18,6 +18,9 @@ interface TrackDao {
     @Query("SELECT * FROM tracks ORDER BY title ASC")
     fun getAllTracks(): Flow<List<TrackEntity>>
 
+    @Query("SELECT * FROM tracks ORDER BY folderPath ASC, trackNumber ASC, title ASC")
+    suspend fun getAllTracksSync(): List<TrackEntity>
+
     @Query("SELECT * FROM tracks WHERE uri = :uri LIMIT 1")
     suspend fun getTrackByUri(uri: String): TrackEntity?
 

@@ -110,7 +110,6 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val accentThemeId by preferencesDataStore.accentThemeFlow.collectAsState(initial = "needle_red")
-            val crossfadeSeconds by preferencesDataStore.crossfadeSecondsFlow.collectAsState(initial = 0)
             val appVolumePercent by preferencesDataStore.appVolumePercentFlow.collectAsState(initial = 100)
             val isLoudnessEnabled by preferencesDataStore.loudnessBoostFlow.collectAsState(initial = false)
             val isKeepScreenOn by preferencesDataStore.keepScreenOnFlow.collectAsState(initial = true)
@@ -155,7 +154,6 @@ class MainActivity : ComponentActivity() {
                     if (showSettingsDialog) {
                         SettingsDialog(
                             currentAccentTheme = currentAccent,
-                            currentCrossfadeSeconds = crossfadeSeconds,
                             currentAppVolumePercent = appVolumePercent,
                             isLoudnessEnabled = isLoudnessEnabled,
                             isKeepScreenOn = isKeepScreenOn,
@@ -166,11 +164,6 @@ class MainActivity : ComponentActivity() {
                             onSelectAccent = { newThemeId ->
                                 coroutineScope.launch {
                                     preferencesDataStore.saveAccentTheme(newThemeId)
-                                }
-                            },
-                            onSelectCrossfade = { newSeconds ->
-                                coroutineScope.launch {
-                                    preferencesDataStore.saveCrossfadeSeconds(newSeconds)
                                 }
                             },
                             onSelectAppVolume = { newVolume ->

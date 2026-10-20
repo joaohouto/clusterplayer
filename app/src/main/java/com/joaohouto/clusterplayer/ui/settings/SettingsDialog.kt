@@ -91,7 +91,6 @@ private enum class SettingsTab(val titleRes: Int, val icon: ImageVector) {
 @Composable
 fun SettingsDialog(
     currentAccentTheme: ClusterAccent,
-    currentCrossfadeSeconds: Int,
     currentAppVolumePercent: Int,
     isLoudnessEnabled: Boolean,
     isKeepScreenOn: Boolean,
@@ -100,7 +99,6 @@ fun SettingsDialog(
     isAutoplayOnStart: Boolean,
     isFullScreen: Boolean = false,
     onSelectAccent: (String) -> Unit,
-    onSelectCrossfade: (Int) -> Unit,
     onSelectAppVolume: (Int) -> Unit,
     onToggleLoudness: (Boolean) -> Unit,
     onToggleKeepScreenOn: (Boolean) -> Unit,
@@ -114,9 +112,6 @@ fun SettingsDialog(
     val context = LocalContext.current
     var activeTab by remember { mutableStateOf(SettingsTab.AUDIO) }
 
-    var crossfadeSliderValue by remember(currentCrossfadeSeconds) {
-        mutableFloatStateOf(currentCrossfadeSeconds.toFloat())
-    }
     var volumeSliderValue by remember(currentAppVolumePercent) {
         mutableFloatStateOf(currentAppVolumePercent.toFloat())
     }
@@ -263,13 +258,8 @@ fun SettingsDialog(
                 ) {
                     when (activeTab) {
                         SettingsTab.AUDIO -> AudioSettingsPanel(
-                            currentCrossfadeSeconds = currentCrossfadeSeconds,
-                            currentAppVolumePercent = currentAppVolumePercent,
                             isLoudnessEnabled = isLoudnessEnabled,
                             isAutoplayOnStart = isAutoplayOnStart,
-                            crossfadeSliderValue = crossfadeSliderValue,
-                            onCrossfadeChange = { crossfadeSliderValue = it },
-                            onCrossfadeChangeFinished = { onSelectCrossfade(crossfadeSliderValue.roundToInt()) },
                             volumeSliderValue = volumeSliderValue,
                             onVolumeChange = { volumeSliderValue = it },
                             onVolumeChangeFinished = { onSelectAppVolume(volumeSliderValue.roundToInt()) },
@@ -312,13 +302,8 @@ fun SettingsDialog(
  */
 @Composable
 private fun AudioSettingsPanel(
-    currentCrossfadeSeconds: Int,
-    currentAppVolumePercent: Int,
     isLoudnessEnabled: Boolean,
     isAutoplayOnStart: Boolean,
-    crossfadeSliderValue: Float,
-    onCrossfadeChange: (Float) -> Unit,
-    onCrossfadeChangeFinished: () -> Unit,
     volumeSliderValue: Float,
     onVolumeChange: (Float) -> Unit,
     onVolumeChangeFinished: () -> Unit,
@@ -447,72 +432,7 @@ private fun AudioSettingsPanel(
             }
         }
 
-        // 3. Transição Gradual Crossfade
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = SurfaceCard,
-            border = BorderStroke(1.dp, SurfaceCardBorder)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.settings_crossfade_title),
-                            color = TextPrimary,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_crossfade_subtitle),
-                            color = TextSecondary,
-                            fontSize = 12.sp
-                        )
-                    }
-
-                    val seconds = crossfadeSliderValue.roundToInt()
-                    Text(
-                        text = if (seconds == 0) stringResource(R.string.settings_crossfade_disabled) else stringResource(R.string.settings_crossfade_seconds, seconds),
-                        color = if (seconds > 0) accent.primary else TextSecondary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Slider(
-                    value = crossfadeSliderValue,
-                    onValueChange = onCrossfadeChange,
-                    onValueChangeFinished = onCrossfadeChangeFinished,
-                    valueRange = 0f..10f,
-                    steps = 9,
-                    colors = SliderDefaults.colors(
-                        thumbColor = accent.primary,
-                        activeTrackColor = accent.primary,
-                        inactiveTrackColor = Color(0xFF1E222B)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Text(
-                    text = stringResource(R.string.settings_crossfade_hint),
-                    color = TextDisabled,
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp
-                )
-            }
-        }
-
-        // 4. Autoplay on Launch
+        // 3. Autoplay on Launch
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),

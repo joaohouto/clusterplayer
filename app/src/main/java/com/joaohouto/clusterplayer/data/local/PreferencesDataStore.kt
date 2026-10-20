@@ -33,7 +33,6 @@ class PreferencesDataStore(private val context: Context) {
         val KEY_SHUFFLE_MODE = booleanPreferencesKey("shuffle_mode")
         val KEY_REPEAT_MODE = intPreferencesKey("repeat_mode")
         val KEY_ACCENT_THEME = stringPreferencesKey("accent_theme")
-        val KEY_CROSSFADE_SECONDS = intPreferencesKey("crossfade_seconds")
         val KEY_APP_VOLUME_PERCENT = intPreferencesKey("app_volume_percent")
         val KEY_LOUDNESS_BOOST = booleanPreferencesKey("loudness_boost")
         val KEY_KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
@@ -105,10 +104,6 @@ class PreferencesDataStore(private val context: Context) {
         prefs[KEY_ACCENT_THEME] ?: "needle_red"
     }
 
-    val crossfadeSecondsFlow: Flow<Int> = context.dataStore.data.map { prefs ->
-        prefs[KEY_CROSSFADE_SECONDS] ?: 0 // Default: 0s (Disabled)
-    }
-
     val appVolumePercentFlow: Flow<Int> = context.dataStore.data.map { prefs ->
         prefs[KEY_APP_VOLUME_PERCENT] ?: 100 // Default: 100%
     }
@@ -148,12 +143,6 @@ class PreferencesDataStore(private val context: Context) {
     suspend fun saveAccentTheme(themeId: String) {
         context.dataStore.edit { prefs ->
             prefs[KEY_ACCENT_THEME] = themeId
-        }
-    }
-
-    suspend fun saveCrossfadeSeconds(seconds: Int) {
-        context.dataStore.edit { prefs ->
-            prefs[KEY_CROSSFADE_SECONDS] = seconds
         }
     }
 

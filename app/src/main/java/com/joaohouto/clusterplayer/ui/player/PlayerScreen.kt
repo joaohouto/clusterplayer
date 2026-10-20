@@ -284,7 +284,8 @@ fun PlayerScreen(
                 TrackProgressSection(
                     viewModel = viewModel,
                     durationMs = state.durationMs,
-                    isPlaying = state.isPlaying
+                    isPlaying = state.isPlaying,
+                    trackKey = currentTrack?.uri
                 )
             }
         }
@@ -604,6 +605,7 @@ private fun TrackProgressSection(
     viewModel: PlayerViewModel,
     durationMs: Long,
     isPlaying: Boolean,
+    trackKey: String? = null,
     modifier: Modifier = Modifier
 ) {
     val currentPositionMs by viewModel.currentPosition.collectAsState()
@@ -611,6 +613,7 @@ private fun TrackProgressSection(
         currentPositionMs = currentPositionMs,
         durationMs = durationMs,
         isPlaying = isPlaying,
+        trackKey = trackKey,
         onSeek = { targetMs -> viewModel.seekTo(targetMs) },
         modifier = modifier
     )

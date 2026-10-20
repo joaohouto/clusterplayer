@@ -46,11 +46,6 @@
     <string name="settings_title">SETTINGS</string>
     <string name="settings_accent_title">Cluster Lighting Color</string>
     <string name="settings_accent_subtitle">Select the gauge and button accent color</string>
-    <string name="settings_crossfade_title">Gradual Transition (Fade)</string>
-    <string name="settings_crossfade_subtitle">Smooth volume curve between tracks</string>
-    <string name="settings_crossfade_disabled">Disabled</string>
-    <string name="settings_crossfade_seconds">%1$d seconds</string>
-    <string name="settings_crossfade_hint">Smoothly decreases volume at track end and raises it at the beginning of the next track to eliminate jarring sound cuts while driving.</string>
     <string name="settings_about_title">ABOUT</string>
     <string name="settings_about_app">Cluster Player</string>
     <string name="settings_about_desc">High-performance music player engineered for Android automotive head units.</string>
