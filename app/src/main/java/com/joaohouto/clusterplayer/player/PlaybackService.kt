@@ -194,10 +194,16 @@ class PlaybackService : MediaSessionService() {
                     }
                     else -> {}
                 }
+                PlayerController.getInstance(this@PlaybackService).onDirectPlaybackStateChanged()
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                PlayerController.getInstance(this@PlaybackService).onDirectPlaybackStateChanged()
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 saveCurrentStateImmediate()
+                PlayerController.getInstance(this@PlaybackService).onDirectPlaybackStateChanged()
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -434,6 +440,8 @@ class PlaybackService : MediaSessionService() {
                     } else {
                         Log.d(TAG, "Autoplay restored (paused): folder=$folderPath, index=$targetIndex, pos=${seekPos}ms")
                     }
+                    PlayerController.getInstance(this@PlaybackService)
+                        .onDirectTrackTransition(player.currentMediaItem)
                 }
             }
         } catch (e: Exception) {

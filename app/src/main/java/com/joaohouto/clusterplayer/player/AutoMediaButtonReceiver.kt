@@ -23,26 +23,32 @@ class AutoMediaButtonReceiver : BroadcastReceiver() {
 
             if (keyEvent != null && keyEvent.action == KeyEvent.ACTION_DOWN) {
                 Log.d(TAG, "Received automotive steering wheel media button: keyCode=${keyEvent.keyCode}")
+                val controller = PlayerController.getInstance(context)
                 val session = PlaybackService.getMediaSessionInstance()
                 val player = session?.player
 
                 if (player != null) {
                     when (keyEvent.keyCode) {
-                        KeyEvent.KEYCODE_MEDIA_PLAY -> player.play()
-                        KeyEvent.KEYCODE_MEDIA_PAUSE -> player.pause()
+                        KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                            if (player.playbackState == androidx.media3.common.Player.STATE_IDLE) {
+                                player.prepare()
+                            } else if (player.playbackState == androidx.media3.common.Player.STATE_ENDED) {
+                                player.seekToDefaultPosition()
+                            }
+                            player.play()
+                            controller.onDirectPlaybackStateChanged()
+                        }
+                        KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                            player.pause()
+                            controller.onDirectPlaybackStateChanged()
+                        }
                         KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
                         KeyEvent.KEYCODE_HEADSETHOOK -> {
-                            if (player.isPlaying) player.pause() else player.play()
+                            controller.playPause()
                         }
-                        KeyEvent.KEYCODE_MEDIA_NEXT -> player.seekToNextMediaItem()
-                        KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
-                            if (player.currentPosition > 3000L) {
-                                player.seekTo(0L)
-                            } else {
-                                player.seekToPreviousMediaItem()
-                            }
-                        }
-                        KeyEvent.KEYCODE_MEDIA_STOP -> player.stop()
+                        KeyEvent.KEYCODE_MEDIA_NEXT -> controller.next()
+                        KeyEvent.KEYCODE_MEDIA_PREVIOUS -> controller.previous()
+                        KeyEvent.KEYCODE_MEDIA_STOP -> controller.stop()
                     }
                 }
             }

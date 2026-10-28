@@ -77,6 +77,9 @@ fun ProgressBarSlider(
 
     LaunchedEffect(isPlaying, validDuration, trackKey) {
         if (isPlaying) {
+            anchorPositionMs = currentPositionMs
+            anchorRealtimeMs = android.os.SystemClock.elapsedRealtime()
+            livePositionMs = currentPositionMs
             while (isActive) {
                 if (!isDragging) {
                     val elapsed = android.os.SystemClock.elapsedRealtime() - anchorRealtimeMs
@@ -85,7 +88,9 @@ fun ProgressBarSlider(
                 delay(16L) // Atualização fluida e contínua do trajeto visual
             }
         } else {
-            livePositionMs = anchorPositionMs
+            anchorPositionMs = currentPositionMs
+            anchorRealtimeMs = android.os.SystemClock.elapsedRealtime()
+            livePositionMs = currentPositionMs
         }
     }
 

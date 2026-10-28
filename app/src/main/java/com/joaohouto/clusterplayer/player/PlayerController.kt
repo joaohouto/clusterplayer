@@ -86,6 +86,15 @@ class PlayerController private constructor(private val context: Context) {
         return PlaybackService.getMediaSessionInstance()?.player ?: mediaController
     }
 
+    private fun isEffectivelyPlaying(player: Player): Boolean {
+        return player.isPlaying || (
+            player.playWhenReady &&
+                player.playbackState != Player.STATE_ENDED &&
+                player.playbackState != Player.STATE_IDLE &&
+                player.mediaItemCount > 0
+            )
+    }
+
     private val repository = MusicRepository.getInstance(context)
     private val preferencesDataStore = PreferencesDataStore.getInstance(context)
     private var userLyricsOffsetMs: Long = 0L
@@ -149,6 +158,12 @@ class PlayerController private constructor(private val context: Context) {
         }
     }
 
+    fun onDirectPlaybackStateChanged() {
+        controllerScope.launch(Dispatchers.Main.immediate) {
+            updateStateFromController()
+        }
+    }
+
     fun onDirectTrackTransition(mediaItem: MediaItem?, transitionRealtimeMs: Long = android.os.SystemClock.elapsedRealtime()) {
         controllerScope.launch(Dispatchers.Main.immediate) {
             val now = android.os.SystemClock.elapsedRealtime()
@@ -175,6 +190,7 @@ class PlayerController private constructor(private val context: Context) {
                         Player.EVENT_POSITION_DISCONTINUITY,
                         Player.EVENT_TIMELINE_CHANGED,
                         Player.EVENT_PLAYBACK_STATE_CHANGED,
+                        Player.EVENT_PLAY_WHEN_READY_CHANGED,
                         Player.EVENT_IS_PLAYING_CHANGED
                     )
                 ) {
@@ -192,12 +208,10 @@ class PlayerController private constructor(private val context: Context) {
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 updateStateFromController()
-                val activePlaying = getActivePlayer()?.isPlaying ?: isPlaying
-                if (activePlaying) {
-                    startPositionTicker()
-                } else {
-                    stopPositionTicker()
-                }
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                updateStateFromController()
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -251,11 +265,17 @@ class PlayerController private constructor(private val context: Context) {
                     anchorRealtimeMs = now
                     _currentPosition.value = pos
                     val duration = if (activePlayer.duration > 0) activePlayer.duration else _uiState.value.durationMs
+                    val effectivePlaying = isEffectivelyPlaying(activePlayer)
                     _uiState.value = _uiState.value.copy(
-                        isPlaying = activePlayer.isPlaying,
+                        isPlaying = effectivePlaying,
                         currentPositionMs = pos,
                         durationMs = duration
                     )
+                    if (effectivePlaying) {
+                        startPositionTicker()
+                    } else {
+                        stopPositionTicker()
+                    }
                     updateLyricsLine(pos)
                 }
             }
@@ -276,10 +296,8 @@ class PlayerController private constructor(private val context: Context) {
         })
 
         val initialPlayer = getActivePlayer() ?: controller
-        if (initialPlayer.isPlaying) {
-            startPositionTicker()
-        }
         loadCurrentTrackMetadata(initialPlayer.currentMediaItem)
+        updateStateFromController()
     }
 
     private fun loadCurrentTrackMetadata(mediaItem: MediaItem?) {
@@ -365,10 +383,9 @@ class PlayerController private constructor(private val context: Context) {
         }
     }
 
-    private fun getSanitizedPosition(controller: MediaController): Long {
+    private fun getSanitizedPosition(activePlayer: Player): Long {
         val now = android.os.SystemClock.elapsedRealtime()
         val isSeekingDebounced = (now - lastSeekTimestamp) < 800L
-        val activePlayer = getActivePlayer() ?: controller
         val rawPos = activePlayer.currentPosition.coerceAtLeast(0L)
         val resolvedPos = if (isSeekingDebounced && lastSeekTargetMs >= 0L) {
             if (kotlin.math.abs(rawPos - lastSeekTargetMs) < 1500L) {
@@ -387,22 +404,30 @@ class PlayerController private constructor(private val context: Context) {
     }
 
     private fun updateStateFromController() {
-        val controller = mediaController ?: return
-        val activePlayer = getActivePlayer() ?: controller
+        val activePlayer = getActivePlayer() ?: return
+        val controller = mediaController
         val playerDuration = activePlayer.duration.takeIf { it > 0 }
-            ?: controller.duration.takeIf { it > 0 }
+            ?: controller?.duration?.takeIf { it > 0 }
             ?: 0L
         val duration = if (playerDuration > 0) playerDuration else _uiState.value.currentTrack?.durationMs ?: 0L
-        val currentPos = getSanitizedPosition(controller)
+        val currentPos = getSanitizedPosition(activePlayer)
+        val effectivePlaying = isEffectivelyPlaying(activePlayer)
 
         _currentPosition.value = currentPos
         _uiState.value = _uiState.value.copy(
-            isPlaying = activePlayer.isPlaying,
+            isPlaying = effectivePlaying,
             currentPositionMs = currentPos,
             durationMs = duration,
             isShuffleEnabled = activePlayer.shuffleModeEnabled,
             repeatMode = activePlayer.repeatMode
         )
+        if (effectivePlaying) {
+            if (positionTickerJob?.isActive != true) {
+                startPositionTicker()
+            }
+        } else {
+            stopPositionTicker()
+        }
         updateLyricsLine(currentPos)
     }
 
@@ -424,9 +449,14 @@ class PlayerController private constructor(private val context: Context) {
         positionTickerJob = controllerScope.launch {
             while (isActive) {
                 delay(50) // Ressincronização de âncora e letras com o directPlayer
-                val controller = mediaController ?: continue
-                val activePlayer = getActivePlayer() ?: controller
-                if (activePlayer.isPlaying) {
+                val activePlayer = getActivePlayer() ?: continue
+                val controller = mediaController
+                val effectivePlaying = isEffectivelyPlaying(activePlayer)
+                if (effectivePlaying != _uiState.value.isPlaying) {
+                    updateStateFromController()
+                    if (!effectivePlaying) break
+                }
+                if (effectivePlaying) {
                     val currentItem = activePlayer.currentMediaItem
                     // Sempre consulta o directPlayer primeiro para nunca reverter a faixa por atraso IPC
                     if (currentItem != null && currentItem.mediaId != _uiState.value.currentTrack?.uri) {
@@ -443,11 +473,11 @@ class PlayerController private constructor(private val context: Context) {
                         _currentPosition.value = 0L
                         updateStateFromController()
                     } else {
-                        val pos = getSanitizedPosition(controller)
+                        val pos = getSanitizedPosition(activePlayer)
                         _currentPosition.value = pos
 
                         val pDuration = activePlayer.duration.takeIf { it > 0 }
-                            ?: controller.duration.takeIf { it > 0 }
+                            ?: controller?.duration?.takeIf { it > 0 }
                             ?: 0L
                         if (pDuration > 0 && pDuration != _uiState.value.durationMs) {
                             _uiState.value = _uiState.value.copy(durationMs = pDuration, currentPositionMs = pos)
@@ -466,56 +496,69 @@ class PlayerController private constructor(private val context: Context) {
     }
 
     fun playPause() {
-        val controller = mediaController ?: return
-        if (controller.isPlaying) {
-            controller.pause()
+        val activePlayer = getActivePlayer() ?: return
+        val currentlyPlaying = isEffectivelyPlaying(activePlayer)
+        if (currentlyPlaying) {
+            activePlayer.pause()
         } else {
-            if (controller.playbackState == Player.STATE_IDLE) {
-                controller.prepare()
+            if (activePlayer.playbackState == Player.STATE_IDLE) {
+                activePlayer.prepare()
+            } else if (activePlayer.playbackState == Player.STATE_ENDED) {
+                activePlayer.seekToDefaultPosition()
             }
-            controller.play()
+            activePlayer.play()
         }
+        updateStateFromController()
     }
 
     fun next() {
-        mediaController?.seekToNextMediaItem()
+        val activePlayer = getActivePlayer() ?: return
+        activePlayer.seekToNextMediaItem()
+        if (activePlayer.playbackState == Player.STATE_IDLE) {
+            activePlayer.prepare()
+        }
+        updateStateFromController()
     }
 
     fun previous() {
-        val controller = mediaController ?: return
+        val activePlayer = getActivePlayer() ?: return
         // Rule: restart current if > 3s, else previous track
-        if (controller.currentPosition > 3000L) {
-            controller.seekTo(0L)
+        if (activePlayer.currentPosition > 3000L) {
+            seekTo(0L)
         } else {
-            controller.seekToPreviousMediaItem()
+            activePlayer.seekToPreviousMediaItem()
+            if (activePlayer.playbackState == Player.STATE_IDLE) {
+                activePlayer.prepare()
+            }
+            updateStateFromController()
         }
     }
 
     fun seekTo(positionMs: Long) {
-        val controller = mediaController ?: return
+        val activePlayer = getActivePlayer() ?: return
         lastSeekTimestamp = android.os.SystemClock.elapsedRealtime()
         lastSeekTargetMs = positionMs
-        controller.seekTo(positionMs)
+        activePlayer.seekTo(positionMs)
         _currentPosition.value = positionMs
         _uiState.value = _uiState.value.copy(currentPositionMs = positionMs)
         updateLyricsLine(positionMs)
     }
 
     fun toggleShuffle() {
-        val controller = mediaController ?: return
-        val nextMode = !controller.shuffleModeEnabled
-        controller.shuffleModeEnabled = nextMode
+        val activePlayer = getActivePlayer() ?: return
+        val nextMode = !activePlayer.shuffleModeEnabled
+        activePlayer.shuffleModeEnabled = nextMode
         _uiState.value = _uiState.value.copy(isShuffleEnabled = nextMode)
     }
 
     fun cycleRepeatMode() {
-        val controller = mediaController ?: return
-        val nextMode = when (controller.repeatMode) {
+        val activePlayer = getActivePlayer() ?: return
+        val nextMode = when (activePlayer.repeatMode) {
             Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
             Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
             else -> Player.REPEAT_MODE_OFF
         }
-        controller.repeatMode = nextMode
+        activePlayer.repeatMode = nextMode
         _uiState.value = _uiState.value.copy(repeatMode = nextMode)
     }
 
